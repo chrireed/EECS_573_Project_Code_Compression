@@ -1,4 +1,6 @@
-#include "../firmware/firmware.h"
+// Taken from picorv32 firmware/
+
+#include "firmware.h"
 
 int main() {
     int x = 2 + 1;
@@ -11,4 +13,5 @@ int main() {
     print_hex(z,1);
     print_chr('\n');
     print_str("Hello World!\n");
+    stats();
 }

@@ -1,9 +1,4 @@
-// This is free and unencumbered software released into the public domain.
-//
-// Anyone is free to copy, modify, publish, use, compile, sell, or
-// distribute this software, either in source code form or as a compiled
-// binary, for any purpose, commercial or non-commercial, and by any
-// means.
+// Taken from picorv32 firmware/
 
 #include "firmware.h"
 
@@ -15,7 +10,7 @@ static uint32_t xorshift32(void) {
 	return x;
 }
 
-void multest(void)
+int main()
 {
 	for (int i = 0; i < 15; i++)
 	{
@@ -96,7 +91,7 @@ void multest(void)
 		if (s_mul != h_mul || s_mulh != h_mulh || s_mulhsu != h_mulhsu || s_mulhu != h_mulhu) {
 			print_str("ERROR!\n");
 			__asm__ volatile ("ebreak");
-			return;
+			return 0;
 		}
 
 		print_str(" OK\n");
@@ -142,7 +137,7 @@ void multest(void)
 		if (s_div != h_div || s_divu != h_divu || s_rem != h_rem || s_remu != h_remu) {
 			print_str("ERROR!\n");
 			__asm__ volatile ("ebreak");
-			return;
+			return 0;
 		}
 
 		print_str(" OK\n");

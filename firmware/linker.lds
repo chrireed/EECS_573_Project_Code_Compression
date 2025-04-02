@@ -10,9 +10,9 @@ OUTPUT_FORMAT("elf32-littleriscv", "elf32-littleriscv", "elf32-littleriscv")
 OUTPUT_ARCH( "riscv" )
 ENTRY(entry)
 
-/* Setting memory regions */
+/* Setting memory regions, memsize = 1MB*/
 MEMORY {
-    MEM (rwx) : ORIGIN = 0x00000000, LENGTH = 0x10000
+    MEM (rwx) : ORIGIN = 0x00000000, LENGTH = 0x100000
 }
 
 
@@ -85,7 +85,7 @@ SECTIONS
      * heap_stack_min_size: 4096
      * heap_stack_max_size: 1048576
      */
-    PROVIDE(_sp = ALIGN(MIN((ORIGIN(MEM) + LENGTH(MEM)), _ebss + 1048576) - 7, 8));
+    PROVIDE(_sp = (ORIGIN(MEM) + LENGTH(MEM)));
     /*
      * Protect top of stack from heap, but this will not protect the heap from
      * stack overruns.
@@ -96,4 +96,6 @@ SECTIONS
     .stack : {
         ASSERT(_sp >= (_ebss + 4096), "Error: No room left for the heap and stack");
     }
+
+    PROVIDE(_print_addr = 0x10000000);
 }

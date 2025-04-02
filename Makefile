@@ -76,7 +76,6 @@ TCL_SCRIPT = synth/470synth.tcl
 CFLAGS     = -mno-relax -march=rv32im -mabi=ilp32 -nostartfiles -mstrict-align
 # adjust the optimization if you want programs to run faster; this may obfuscate/change their instructions
 OFLAGS     = -O0
-ASFLAGS    = -mno-relax -march=rv32im -mabi=ilp32 -nostartfiles -Wno-main -mstrict-align
 OBJFLAGS   = -SD -M no-aliases
 OBJCFLAGS  = --set-section-flags .bss=contents,alloc,readonly
 OBJDFLAGS  = -SD -M numeric,no-aliases
@@ -91,12 +90,14 @@ ifeq (1, $(CAEN))
     OBJDUMP = riscv objdump
     AS      = riscv as
     ELF2HEX = riscv elf2hex
+	STRIP	= riscv strip
 else
     GCC     = riscv64-unknown-elf-gcc
     OBJCOPY = riscv64-unknown-elf-objcopy
     OBJDUMP = riscv64-unknown-elf-objdump
     AS      = riscv64-unknown-elf-as
     ELF2HEX = elf2hex
+	STRIP	= 
 endif
 
 ####################################
@@ -156,12 +157,18 @@ slack:
 # find the test program files and separate them based on suffix of .s or .c
 # filter out files that aren't themselves programs
 NON_PROGRAMS = $(ENTRY)
-#ASSEMBLY = $(filter-out $(NON_PROGRAMS),$(wildcard programs/*.s))
 C_CODE   = $(filter-out $(NON_PROGRAMS),$(wildcard programs/*.c))
 
 # concatenate ASSEMBLY and C_CODE to list every program
 #PROGRAMS = $(ASSEMBLY:%.s=%) $(C_CODE:%.c=%)
-PROGRAMS = $(C_CODE:%.c=%)
+EMB_PROGRAMS = programs/mont64 programs/crc32 programs/cubic programs/edn \
+               programs/huffbench programs/matmult-int programs/md5sum \
+               programs/minver programs/nbody programs/nettle-aes \
+               programs/nettle-sha256 programs/nsichneu programs/picojpeg \
+               programs/primecount programs/qrduino programs/sglib-combined \
+               programs/slre programs/st programs/statemate programs/tarfind \
+               programs/ud programs/wikisort
+PROGRAMS = $(C_CODE:%.c=%) $(EMB_PROGRAMS)
 
 # NOTE: this is Make's pattern substitution syntax
 # see: https://www.gnu.org/software/make/manual/html_node/Text-Functions.html#Text-Functions
@@ -172,12 +179,15 @@ PROGRAMS = $(C_CODE:%.c=%)
 # C and assembly compilation files. These link and setup the runtime for the programs
 ENTRY     		= firmware/entry.S
 LINKERS    		= firmware/linker.lds
-FIRMWARE   		= firmware/print.c firmware/firmware.h
+FIRMWARE   		= firmware/print.c firmware/stats.c firmware/firmware.h
+FIRMWARE_DIR	= firmware/
 
-# make elf files from C source code
+# make elf files from C source code and strip debug info
 %.elf: %.c $(ENTRY) $(LINKERS) $(FIRMWARE)
 	@$(call PRINT_COLOR, 5, compiling C code file $<)
-	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) $(FIRMWARE) $< -T $(LINKERS) -o $@
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) $< -T $(LINKERS) -o $@
+	$(STRIP) --strip-debug $@
+	
 
 # C programs can also be compiled in debug mode, this is solely meant for use in the .dump files below
 %.debug.elf: %.c $(ENTRY) $(LINKERS)
@@ -188,7 +198,7 @@ FIRMWARE   		= firmware/print.c firmware/firmware.h
 # turn any elf file into a hex memory file ready for the testbench
 # each line of mem corresponds to 1 word (4B/32b) in memory
 %.mem: %.elf
-	$(ELF2HEX) 4 8192 $< > $@
+	$(ELF2HEX) 4 65536 $< > $@
 	@$(call PRINT_COLOR, 6, created memory file $@)
 	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
 	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
@@ -236,6 +246,11 @@ DUMP_PROGRAMS = $(C_CODE:.c=.debug)
 dump_all: $(DUMP_PROGRAMS:=.dump_x) $(DUMP_PROGRAMS:=.dump_abi)
 .PHONY: dump_all
 
+# consume the output trace
+%.trace_dump: programs/%.dump_abi output/%.out showtrace.py 
+	@$(call PRINT_COLOR, 5, consuming trace for %)
+	python3 showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
+
 ###############################
 # ---- Program Execution ---- #
 ###############################
@@ -262,7 +277,7 @@ $(OUTPUTS:=.out): output/%.out: programs/%.mem simv | output
 	@$(call PRINT_COLOR, 5, running simv on $<)
 	./simv +MEMORY=$< +TRACE=$(@D)/$*.trace +MEMACCESS=$(@D)/$*.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running simv on $<)
-	@$(call PRINT_COLOR, 2, output is in $@ $(@D)/$*.wb and $(@D)/$*.ppln)
+	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
 # NOTE: this uses a 'static pattern rule' to match a list of known targets to a pattern
 # and then generates the correct rule based on the pattern, where % and $* match
 # so for the target 'output/sampler.out' the % matches 'sampler' and depends on programs/sampler.mem
@@ -363,3 +378,145 @@ PRINT_COLOR = if [ -t 0 ]; then tput setaf $(1) ; fi; echo $(2); if [ -t 0 ]; th
 # Make functions are called like this:
 # $(call PRINT_COLOR,3,Hello World!)
 # NOTE: adding '@' to the start of a line avoids printing the command itself, only the output
+
+#####################
+# ---- Embench ---- #
+#####################
+EMB_SUPPORT_DIR	= ./programs/emb_support/
+EMB_SUPPORT 	= $(wildcard programs/emb_support/*.c)
+
+EMB_SRC_MONT64 	= $(wildcard programs/emb_src/aha-mont64/*.c)
+EMB_SRC_CRC32 	= $(wildcard programs/emb_src/crc32/*.c)
+EMB_SRC_CUBIC 	= $(wildcard programs/emb_src/cubic/*.c)
+EMB_SRC_EDN 	= $(wildcard programs/emb_src/edn/*.c)
+EMB_SRC_HUFFBENCH = $(wildcard programs/emb_src/huffbench/*.c)
+EMB_SRC_MATMULT 	= $(wildcard programs/emb_src/matmult-int/*.c)
+EMB_SRC_MD5SUM 	= $(wildcard programs/emb_src/md5sum/*.c)
+EMB_SRC_MINVER 	= $(wildcard programs/emb_src/minver/*.c)
+EMB_SRC_NBODY 	= $(wildcard programs/emb_src/nbody/*.c)
+EMB_SRC_NETTLE_AES = $(wildcard programs/emb_src/nettle-aes/*.c)
+EMB_SRC_NETTLE_SHA256 = $(wildcard programs/emb_src/nettle-sha256/*.c)
+EMB_SRC_NSICHNEU = $(wildcard programs/emb_src/nsichneu/*.c)
+EMB_SRC_PICOJPEG = $(wildcard programs/emb_src/picojpeg/*.c)
+EMB_SRC_PRIMECOUNT = $(wildcard programs/emb_src/primecount/*.c)
+EMB_SRC_QRDUINO = $(wildcard programs/emb_src/qrduino/*.c)
+EMB_SRC_SGLIB 	= $(wildcard programs/emb_src/sglib-combined/*.c)
+EMB_SRC_SLRE 	= $(wildcard programs/emb_src/slre/*.c)
+EMB_SRC_ST 	= $(wildcard programs/emb_src/st/*.c)
+EMB_SRC_STATEMATE = $(wildcard programs/emb_src/statemate/*.c)
+EMB_SRC_TARFIND = $(wildcard programs/emb_src/tarfind/*.c)
+EMB_SRC_UD 	= $(wildcard programs/emb_src/ud/*.c)
+EMB_SRC_WIKISORT = $(wildcard programs/emb_src/wikisort/*.c)
+
+EMB_LIB_FLAGS	= -lm
+
+# make elf files from C source code
+programs/mont64.elf: $(EMB_SUPPORT) $(EMB_SRC_MONT64) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_MONT64) -T $(LINKERS) -o programs/mont64.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/crc32.elf: $(EMB_SUPPORT) $(EMB_SRC_CRC32) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_CRC32) -T $(LINKERS) -o programs/crc32.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/cubic.elf: $(EMB_SUPPORT) $(EMB_SRC_CUBIC) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_CUBIC) -T $(LINKERS) -o programs/cubic.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/edn.elf: $(EMB_SUPPORT) $(EMB_SRC_EDN) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_EDN) -T $(LINKERS) -o programs/edn.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/huffbench.elf: $(EMB_SUPPORT) $(EMB_SRC_HUFFBENCH) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_HUFFBENCH) -T $(LINKERS) -o programs/huffbench.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/matmult-int.elf: $(EMB_SUPPORT) $(EMB_SRC_MATMULT) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_MATMULT) -T $(LINKERS) -o programs/matmult-int.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/md5sum.elf: $(EMB_SUPPORT) $(EMB_SRC_MD5SUM) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_MD5SUM) -T $(LINKERS) -o programs/md5sum.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/minver.elf: $(EMB_SUPPORT) $(EMB_SRC_MINVER) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_MINVER) -T $(LINKERS) -o programs/minver.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/nbody.elf: $(EMB_SUPPORT) $(EMB_SRC_NBODY) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_NBODY) -T $(LINKERS) -o programs/nbody.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/nettle-aes.elf: $(EMB_SUPPORT) $(EMB_SRC_NETTLE_AES) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_NETTLE_AES) -T $(LINKERS) -o programs/nettle-aes.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/nettle-sha256.elf: $(EMB_SUPPORT) $(EMB_SRC_NETTLE_SHA256) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_NETTLE_SHA256) -T $(LINKERS) -o programs/nettle-sha256.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/nsichneu.elf: $(EMB_SUPPORT) $(EMB_SRC_NSICHNEU) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_NSICHNEU) -T $(LINKERS) -o programs/nsichneu.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/picojpeg.elf: $(EMB_SUPPORT) $(EMB_SRC_PICOJPEG) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_PICOJPEG) -T $(LINKERS) -o programs/picojpeg.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/primecount.elf: $(EMB_SUPPORT) $(EMB_SRC_PRIMECOUNT) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_PRIMECOUNT) -T $(LINKERS) -o programs/primecount.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/qrduino.elf: $(EMB_SUPPORT) $(EMB_SRC_QRDUINO) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_QRDUINO) -T $(LINKERS) -o programs/qrduino.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/sglib-combined.elf: $(EMB_SUPPORT) $(EMB_SRC_SGLIB) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_SGLIB) -T $(LINKERS) -o programs/sglib-combined.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/slre.elf: $(EMB_SUPPORT) $(EMB_SRC_SLRE) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_SLRE) -T $(LINKERS) -o programs/slre.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/st.elf: $(EMB_SUPPORT) $(EMB_SRC_ST) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_ST) -T $(LINKERS) -o programs/st.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/statemate.elf: $(EMB_SUPPORT) $(EMB_SRC_STATEMATE) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_STATEMATE) -T $(LINKERS) -o programs/statemate.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/tarfind.elf: $(EMB_SUPPORT) $(EMB_SRC_TARFIND) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_TARFIND) -T $(LINKERS) -o programs/tarfind.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/ud.elf: $(EMB_SUPPORT) $(EMB_SRC_UD) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_UD) -T $(LINKERS) -o programs/ud.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@
+
+programs/wikisort.elf: $(EMB_SUPPORT) $(EMB_SRC_WIKISORT) $(ENTRY) $(LINKERS) $(FIRMWARE)
+	@$(call PRINT_COLOR, 5, compiling C code file $<)
+	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) -I$(EMB_SUPPORT_DIR) $(EMB_SUPPORT) $(EMB_SRC_WIKISORT) -T $(LINKERS) -o programs/wikisort.elf $(EMB_LIB_FLAGS)
+	$(STRIP) --strip-debug $@

@@ -38,8 +38,9 @@ addi x31, zero, 0
 
 /* set stack pointer */
 
-lui sp, %hi(4*1024*1024)
-addi sp, sp, %lo(4*1024*1024)
+//lui sp, %hi(4*1024*1024)
+//addi sp, sp, %lo(4*1024*1024)
+la sp, _sp //load stack pointer from linker
 
 /* push zeros on the stack for argc and argv */
 /* (stack is aligned to 16 bytes in riscv calling convention) */
@@ -48,6 +49,30 @@ sw zero,0(sp)
 sw zero,4(sp)
 sw zero,8(sp)
 sw zero,12(sp)
+
+/* Print "START\n" */
+la t0, _print_addr
+
+addi t1, zero, 0x53
+sw t1, 0(t0) 
+
+addi t1, zero, 0x54
+sw t1, 0(t0)
+
+addi t1, zero, 0x41
+sw t1, 0(t0)
+
+addi t1, zero, 0x52
+sw t1, 0(t0)
+
+addi t1, zero, 0x54
+sw t1, 0(t0) 
+
+addi t1, zero, 0x0a
+sw t1, 0(t0) 
+
+addi t0, zero, 0x0
+addi t1, zero, 0x0
 
 /* Load return address and go to main*/
 la ra, exit
@@ -59,5 +84,69 @@ j main
 exit:
     la sp, _sp
     sw a0, -8(sp)
+
+    /* Print "DONE\n" */
+    la t0, _print_addr
+
+    addi t1, zero, 0x44
+    sw t1, 0(t0) 
+
+    addi t1, zero, 0x4f
+    sw t1, 0(t0)
+
+    addi t1, zero, 0x4e
+    sw t1, 0(t0)
+
+    addi t1, zero, 0x45
+    sw t1, 0(t0)
+
+    addi t1, zero, 0x0a
+    sw t1, 0(t0) 
+
+    addi t0, zero, 0x0
+    addi t1, zero, 0x0
+
     nop
     wfi
+
+// some extra functions for multest.calling
+.global hard_mul
+.global hard_mulh
+.global hard_mulhsu
+.global hard_mulhu
+.global hard_div
+.global hard_divu
+.global hard_rem
+.global hard_remu
+
+hard_mul:
+	mul a0, a0, a1
+	ret
+
+hard_mulh:
+	mulh a0, a0, a1
+	ret
+
+hard_mulhsu:
+	mulhsu a0, a0, a1
+	ret
+
+hard_mulhu:
+	mulhu a0, a0, a1
+	ret
+
+hard_div:
+	div a0, a0, a1
+	ret
+
+hard_divu:
+	divu a0, a0, a1
+	ret
+
+hard_rem:
+	rem a0, a0, a1
+	ret
+
+hard_remu:
+	remu a0, a0, a1
+	ret

@@ -1,9 +1,4 @@
-// This is free and unencumbered software released into the public domain.
-//
-// Anyone is free to copy, modify, publish, use, compile, sell, or
-// distribute this software, either in source code form or as a compiled
-// binary, for any purpose, commercial or non-commercial, and by any
-// means.
+// Taken from picorv32 firmware/
 
 // A simple Sieve of Eratosthenes
 
@@ -52,7 +47,7 @@ static void print_prime(int idx, int val)
 	hash = mkhash(hash, val);
 }
 
-void sieve(void)
+int main()
 {
 	int idx = 1;
 	hash = 5381;

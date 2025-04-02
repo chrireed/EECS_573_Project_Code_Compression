@@ -56,6 +56,7 @@ module testbench;
     picorv32 #(
         .COMPRESSED_ISA(1),
         .ENABLE_MUL(1),
+        .ENABLE_DIV(1),
         .ENABLE_TRACE(1),
         .PROGADDR_RESET(32'h000)
     ) uut (
@@ -73,7 +74,7 @@ module testbench;
         .mem_rdata   (mem_rdata  )
     );
 
-    localparam MEM_SIZE = 4*1024*1024;
+    localparam MEM_SIZE = 1*1024*1024; //1MB
     reg [31:0] memory [0:MEM_SIZE/4-1];
     integer x;
 

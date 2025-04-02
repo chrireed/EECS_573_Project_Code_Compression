@@ -3,11 +3,11 @@
 import sys, re, subprocess
 
 trace_filename = sys.argv[1]
-elf_filename = sys.argv[2]
+dump_filename = sys.argv[2]
 
 insns = dict()
 
-with open(elf_filename, "r") as f:
+with open(dump_filename, "r") as f:
     while True:
         line = f.readline()
         if line == '': break
