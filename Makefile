@@ -56,11 +56,15 @@
 ######################################################
 
 # this is a global clock period variable used in the tcl script and referenced in testbenches
-export CLOCK_PERIOD = 30.0
+export CLOCK_PERIOD = 2.0
 
 # the Verilog Compiler command and arguments
 VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+# VCS = SW_VCS=2023.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
+#        -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+# VCS = SW_VCS=2022.06 vcs +vc -Mupdate -line -full64 -kdb -lca \
+#       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # a SYNTH define is added when compiling for synthesis that can be used in testbenches
 
 # remove certain warnings that generate MB of text but can be safely ignored
@@ -73,9 +77,11 @@ LIB = /afs/umich.edu/class/eecs470/lib/verilog/lec25dscc25.v
 TCL_SCRIPT = synth/470synth.tcl
 
 # build flags
-CFLAGS     = -mno-relax -march=rv32im -mabi=ilp32 -nostartfiles -mstrict-align
+ISA    = -march=rv32im
+CFLAGS = -mno-relax $(ISA) -mabi=ilp32 -nostartfiles -mstrict-align
+
 # adjust the optimization if you want programs to run faster; this may obfuscate/change their instructions
-OFLAGS     = -O0
+OFLAGS     = -O3
 OBJFLAGS   = -SD -M no-aliases
 OBJCFLAGS  = --set-section-flags .bss=contents,alloc,readonly
 OBJDFLAGS  = -SD -M numeric,no-aliases
@@ -116,7 +122,7 @@ TESTBENCH = testbench.v
 
 SOURCES = picorv32.v
 
-SYNTH_FILES = synth/pipeline.vg
+SYNTH_FILES = synth/picorv32.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(HEADERS)
@@ -185,7 +191,7 @@ FIRMWARE_DIR	= firmware/
 # make elf files from C source code and strip debug info
 %.elf: %.c $(ENTRY) $(LINKERS) $(FIRMWARE)
 	@$(call PRINT_COLOR, 5, compiling C code file $<)
-	$(GCC) $(CFLAGS) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) $< -T $(LINKERS) -o $@
+	$(GCC) $(CFLAGS) $(ISA) $(OFLAGS) $(ENTRY) -I$(FIRMWARE_DIR) $(FIRMWARE) $< -T $(LINKERS) -o $@
 	$(STRIP) --strip-debug $@
 	
 
@@ -222,7 +228,8 @@ compile_all: $(PROGRAMS:=.mem)
 # these are useful for the C sources because the debug flag makes the assembly more understandable
 # because it includes some of the original C operations and function/variable names
 
-DUMP_PROGRAMS = $(C_CODE:.c=.debug)
+#DUMP_PROGRAMS = $(C_CODE:.c=.debug)
+DUMP_PROGRAMS = $(PROGRAMS)
 
 # 'make <my_program>.dump' will create both files at once!
 ./%.dump: programs/%.dump_x programs/%.dump_abi ;
@@ -243,14 +250,21 @@ DUMP_PROGRAMS = $(C_CODE:.c=.debug)
 	@$(call PRINT_COLOR, 6, created abi dump file $@)
 
 # create all dump files in one command (use 'make -j' to run multithreaded)
-dump_all: $(DUMP_PROGRAMS:=.dump_x) $(DUMP_PROGRAMS:=.dump_abi)
+#dump_all: $(DUMP_PROGRAMS:=.dump_x) $(DUMP_PROGRAMS:=.dump_abi)
+dump_all: $(DUMP_PROGRAMS:=.dump_abi)
 .PHONY: dump_all
 
 # consume the output trace
 %.trace_dump: programs/%.dump_abi output/%.out showtrace.py 
-	@$(call PRINT_COLOR, 5, consuming trace for %)
+	@$(call PRINT_COLOR, 5, consuming trace for $*)
 	python3 showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
 
+%.syn.trace_dump: programs/%.dump_abi output/%.out showtrace.py 
+	@$(call PRINT_COLOR, 5, consuming trace for $*)
+	python3 showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
+
+./programs/%.trace_dump: %.trace_dump;
+trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
 ###############################
 # ---- Program Execution ---- #
 ###############################
@@ -289,9 +303,9 @@ $(OUTPUTS:=.out): output/%.out: programs/%.mem simv | output
 $(OUTPUTS:=.syn.out): output/%.syn.out: programs/%.mem syn_simv | output
 	@$(call PRINT_COLOR, 5, running syn_simv on $<)
 	@$(call PRINT_COLOR, 3, this might take a while...)
-	./syn_simv +MEMORY=$< +WRITEBACK=$(@D)/$*.syn.wb +PIPELINE=$(@D)/$*.syn.ppln > $@
+	./syn_simv +MEMORY=$< +TRACE=$(@D)/$*.syn.trace +MEMACCESS=$(@D)/$*.syn.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running syn_simv on $<)
-	@$(call PRINT_COLOR, 2, output is in $@ $(@D)/$*.syn.wb and $(@D)/$*.syn.ppln)
+	@$(call PRINT_COLOR, 2, output is in $@ $(@D)/$*.syn.memaccess, and $(@D)/$*.syn.trace)
 
 # Allow us to type 'make <my_program>.out' instead of 'make output/<my_program>.out'
 ./%.out: output/%.out ;
@@ -338,9 +352,9 @@ nuke: clean clean_synth
 
 clean_exe:
 	@$(call PRINT_COLOR, 3, removing compiled executable files)
-	rm -rf *simv *.daidir csrc *.key   # created by simv/syn_simv/vis_simv
-	rm -rf vcdplus.vpd vc_hdrs.h       # created by simv/syn_simv/vis_simv
-	rm -rf verdi* novas* *fsdb*        # verdi files
+	rm -rf *simv *.daidir csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
+	rm -rf vcdplus.vpd vc_hdrs.h       # created by simv/syn_simv/vis_simv <-- linux is tweaking
+	rm -rf verdi* novas* *fsdb*        # verdi files <-- linux is tweaking
 	rm -rf dve* inter.vpd DVEfiles     # old DVE debugger
 
 clean_run_files:
@@ -385,28 +399,28 @@ PRINT_COLOR = if [ -t 0 ]; then tput setaf $(1) ; fi; echo $(2); if [ -t 0 ]; th
 EMB_SUPPORT_DIR	= ./programs/emb_support/
 EMB_SUPPORT 	= $(wildcard programs/emb_support/*.c)
 
-EMB_SRC_MONT64 	= $(wildcard programs/emb_src/aha-mont64/*.c)
-EMB_SRC_CRC32 	= $(wildcard programs/emb_src/crc32/*.c)
-EMB_SRC_CUBIC 	= $(wildcard programs/emb_src/cubic/*.c)
-EMB_SRC_EDN 	= $(wildcard programs/emb_src/edn/*.c)
-EMB_SRC_HUFFBENCH = $(wildcard programs/emb_src/huffbench/*.c)
-EMB_SRC_MATMULT 	= $(wildcard programs/emb_src/matmult-int/*.c)
-EMB_SRC_MD5SUM 	= $(wildcard programs/emb_src/md5sum/*.c)
-EMB_SRC_MINVER 	= $(wildcard programs/emb_src/minver/*.c)
-EMB_SRC_NBODY 	= $(wildcard programs/emb_src/nbody/*.c)
-EMB_SRC_NETTLE_AES = $(wildcard programs/emb_src/nettle-aes/*.c)
-EMB_SRC_NETTLE_SHA256 = $(wildcard programs/emb_src/nettle-sha256/*.c)
-EMB_SRC_NSICHNEU = $(wildcard programs/emb_src/nsichneu/*.c)
-EMB_SRC_PICOJPEG = $(wildcard programs/emb_src/picojpeg/*.c)
-EMB_SRC_PRIMECOUNT = $(wildcard programs/emb_src/primecount/*.c)
-EMB_SRC_QRDUINO = $(wildcard programs/emb_src/qrduino/*.c)
-EMB_SRC_SGLIB 	= $(wildcard programs/emb_src/sglib-combined/*.c)
-EMB_SRC_SLRE 	= $(wildcard programs/emb_src/slre/*.c)
-EMB_SRC_ST 	= $(wildcard programs/emb_src/st/*.c)
-EMB_SRC_STATEMATE = $(wildcard programs/emb_src/statemate/*.c)
-EMB_SRC_TARFIND = $(wildcard programs/emb_src/tarfind/*.c)
-EMB_SRC_UD 	= $(wildcard programs/emb_src/ud/*.c)
-EMB_SRC_WIKISORT = $(wildcard programs/emb_src/wikisort/*.c)
+EMB_SRC_MONT64 			= $(wildcard programs/emb_src/aha-mont64/*.c)
+EMB_SRC_CRC32 			= $(wildcard programs/emb_src/crc32/*.c)
+EMB_SRC_CUBIC 			= $(wildcard programs/emb_src/cubic/*.c)
+EMB_SRC_EDN 			= $(wildcard programs/emb_src/edn/*.c)
+EMB_SRC_HUFFBENCH 		= $(wildcard programs/emb_src/huffbench/*.c)
+EMB_SRC_MATMULT 		= $(wildcard programs/emb_src/matmult-int/*.c)
+EMB_SRC_MD5SUM 			= $(wildcard programs/emb_src/md5sum/*.c)
+EMB_SRC_MINVER 			= $(wildcard programs/emb_src/minver/*.c)
+EMB_SRC_NBODY 			= $(wildcard programs/emb_src/nbody/*.c)
+EMB_SRC_NETTLE_AES 		= $(wildcard programs/emb_src/nettle-aes/*.c)
+EMB_SRC_NETTLE_SHA256 	= $(wildcard programs/emb_src/nettle-sha256/*.c)
+EMB_SRC_NSICHNEU 		= $(wildcard programs/emb_src/nsichneu/*.c)
+EMB_SRC_PICOJPEG 		= $(wildcard programs/emb_src/picojpeg/*.c)
+EMB_SRC_PRIMECOUNT 		= $(wildcard programs/emb_src/primecount/*.c)
+EMB_SRC_QRDUINO 		= $(wildcard programs/emb_src/qrduino/*.c)
+EMB_SRC_SGLIB 			= $(wildcard programs/emb_src/sglib-combined/*.c)
+EMB_SRC_SLRE 			= $(wildcard programs/emb_src/slre/*.c)
+EMB_SRC_ST 				= $(wildcard programs/emb_src/st/*.c)
+EMB_SRC_STATEMATE 		= $(wildcard programs/emb_src/statemate/*.c)
+EMB_SRC_TARFIND 		= $(wildcard programs/emb_src/tarfind/*.c)
+EMB_SRC_UD 				= $(wildcard programs/emb_src/ud/*.c)
+EMB_SRC_WIKISORT 		= $(wildcard programs/emb_src/wikisort/*.c)
 
 EMB_LIB_FLAGS	= -lm
 

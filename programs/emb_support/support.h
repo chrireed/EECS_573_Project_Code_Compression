@@ -17,6 +17,7 @@
 
 #define CPU_MHZ 1
 #define ENABLE_PRINT
+#define ENABLE_STATS
 
 /* Benchmarks must implement verify_benchmark, which must return -1 if no
    verification is done. */

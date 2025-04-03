@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Adapted from picorv32
 
 import sys, re, subprocess
 

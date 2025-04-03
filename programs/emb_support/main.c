@@ -53,14 +53,15 @@ main (int argc __attribute__ ((unused)),
   #ifdef ENABLE_PRINT
   if(correct){
     print_str("PASSED\n");
-    stats();
   } else {
     print_str("FAILED\n");
-    stats();
   }
   #endif
 
-
+  #ifdef ENABLE_STATS
+    stats();
+  #endif
+  
   return (!correct);
 
 }				/* main () */
