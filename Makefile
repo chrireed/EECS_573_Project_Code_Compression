@@ -198,7 +198,7 @@ FIRMWARE_DIR	= firmware/
 # turn any elf file into a hex memory file ready for the testbench
 # each line of mem corresponds to 1 word (4B/32b) in memory
 %.mem: %.elf
-	$(ELF2HEX) 4 65536 $< > $@
+	$(ELF2HEX) 4 32768 $< > $@
 	@$(call PRINT_COLOR, 6, created memory file $@)
 	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
 	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
