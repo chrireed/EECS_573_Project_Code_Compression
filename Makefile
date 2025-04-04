@@ -319,6 +319,15 @@ simulate_all: simv compile_all $(OUTPUTS:=.out)
 simulate_all_syn: syn_simv compile_all $(OUTPUTS:=.syn.out)
 .PHONY: simulate_all simulate_all_syn
 
+#######################
+# ---- Module TB ---- #
+#######################
+icache_simv: icache_tb/icache_dwa_tb.v icache_dwa.v mem.v
+	$(VCS) icache_tb/icache_dwa_tb.v icache_dwa.v mem.v -o icache_simv
+
+%.icache.out: programs/%.mem icache_simv
+	./icache_simv +MEMORY=$< > $@
+
 ###################
 # ---- Verdi ---- #
 ###################

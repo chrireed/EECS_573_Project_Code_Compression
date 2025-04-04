@@ -61,7 +61,6 @@ module testbench;
     ) memory (
         .clk         (clk        ),
         .mem_valid   (mem_valid_i  ),
-        .mem_instr   (mem_instr_i  ),
         .mem_ready   (mem_ready_o  ),
         .mem_addr    (mem_addr_i   ),
         .mem_wdata   (mem_wdata_i  ),
@@ -71,7 +70,6 @@ module testbench;
 
 
     assign mem_valid_i      = proc_mem_valid_o;
-    assign mem_instr_i      = proc_mem_instr_o;
     assign proc_mem_ready_i = mem_ready_o;
     assign mem_addr_i       = proc_mem_addr_o;
     assign mem_wdata_i      = proc_mem_wdata_o;

@@ -3,7 +3,6 @@ module mem #(
 ) (
     input            clk,
     input            mem_valid,
-	input            mem_instr,
 	output reg       mem_ready,
 
 	input        [31:0] mem_addr,
