@@ -120,9 +120,9 @@ HEADERS =
 
 TESTBENCH = testbench.v
 
-SOURCES = picorv32.v
+SOURCES = picorv32.v mem.v
 
-SYNTH_FILES = synth/picorv32.vg
+SYNTH_FILES = synth/picorv32.vg synth/mem.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(HEADERS)
