@@ -118,11 +118,15 @@ endif
 
 HEADERS = 
 
+TESTBENCH_BASE = testbench_base.v
+
 TESTBENCH = testbench.v
 
-SOURCES = picorv32.v mem.v
+SOURCES = picorv32.v imem.v dmem.v icache_1wa.v
 
-SYNTH_FILES = synth/picorv32.vg synth/mem.vg
+SYNTH_FILES = synth/picorv32.vg synth/icache_1wa.vg
+
+#SYNTH_FILES = synth/picorv32.vg synth/imem.vg synth/dmem.vg synth/icache_1wa.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(HEADERS)
@@ -131,13 +135,29 @@ simv: $(TESTBENCH) $(SOURCES) $(HEADERS)
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
+simv_base: $(TESTBENCH_BASE) $(SOURCES) $(HEADERS)
+	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
+	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
+	$(VCS) $(filter-out $(HEADERS),$^) -o $@
+	@$(call PRINT_COLOR, 6, finished compiling $@)
+
 # this also generates many other files, see the tcl script's introduction for info on each of them
-synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
+# synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
+# 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
+# 	@$(call PRINT_COLOR, 3, this might take a while...)
+# 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
+# 	# pipefail causes the command to exit on failure even though it's piping to tee
+# 	set -o pipefail; cd synth && MODULE=$* SOURCES="$(SOURCES)" dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
+# 	@$(call PRINT_COLOR, 6, finished synthesizing $@)
+
+synth/%.vg: %.v $(TCL_SCRIPT) $(HEADERS)
 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
 	@$(call PRINT_COLOR, 3, this might take a while...)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	# pipefail causes the command to exit on failure even though it's piping to tee
-	set -o pipefail; cd synth && MODULE=$* SOURCES="$(SOURCES)" dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
+	set -o pipefail; cd synth && \
+	MODULE=$* SOURCES="$(filter-out $(TCL_SCRIPT) $(HEADERS),$^)" \
+	dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
 	@$(call PRINT_COLOR, 6, finished synthesizing $@)
 
 # the synthesis executable runs your testbench on the synthesized versions of your modules
@@ -292,6 +312,12 @@ $(OUTPUTS:=.out): output/%.out: programs/%.mem simv | output
 	./simv +MEMORY=$< +TRACE=$(@D)/$*.trace +MEMACCESS=$(@D)/$*.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running simv on $<)
 	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
+
+$(OUTPUTS:=.base.out): output/%.base.out: programs/%.mem simv_base | output
+	@$(call PRINT_COLOR, 5, running simv on $<)
+	./simv_base +MEMORY=$< +TRACE=$(@D)/$*.base.trace +MEMACCESS=$(@D)/$*.base.memacc > $@
+	@$(call PRINT_COLOR, 6, finished running simv on $<)
+	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
 # NOTE: this uses a 'static pattern rule' to match a list of known targets to a pattern
 # and then generates the correct rule based on the pattern, where % and $* match
 # so for the target 'output/sampler.out' the % matches 'sampler' and depends on programs/sampler.mem
@@ -316,6 +342,7 @@ $(OUTPUTS:=.syn.out): output/%.syn.out: programs/%.mem syn_simv | output
 
 # run all programs in one command (use 'make -j' to run multithreaded)
 simulate_all: simv compile_all $(OUTPUTS:=.out)
+simulate_all_base: simv compile_all $(OUTPUTS:=.base.out)
 simulate_all_syn: syn_simv compile_all $(OUTPUTS:=.syn.out)
 .PHONY: simulate_all simulate_all_syn
 

@@ -1,5 +1,5 @@
-module mem #(
-    parameter MEM_SIZE = 1*1024*1024
+module dmem #(
+    parameter integer MEM_SIZE = 1*1024*1024
 ) (
     input            clk,
     input            mem_valid,
@@ -18,7 +18,7 @@ module mem #(
         // Handle a memory access
         if (mem_valid && !mem_ready) begin
             mem_ready <= 1;
-            mem_rdata <= 'bx;
+            mem_rdata <= 32'bx;
             if ((|mem_wstrb)) begin
                 if(mem_addr != 32'h 1000_0000) begin
                     if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
