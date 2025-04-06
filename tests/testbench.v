@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-`define WRITE_VCD
+//`define WRITE_VCD
 module testbench;
     reg clk = 1;
     reg resetn = 0;
@@ -140,6 +140,7 @@ module testbench;
         $readmemh(program_memory_file, data_mem.memory);
         $display("Finished loading RAM contents ending at: 0x%h", MEM_SIZE - 1);
 
+        
         // Open trace file
         if ($value$plusargs("TRACE=%s", program_trace_file)) begin
             $display("Using trace output file: %s", program_trace_file);
@@ -148,7 +149,8 @@ module testbench;
             program_trace_file = "trace.out";
         end
         trace_fd = $fopen(program_trace_file, "w");
-
+        
+        
         // Open memaccess file
         if ($value$plusargs("MEMACCESS=%s", memory_access_file)) begin
             $display("Using memory access output file: %s", memory_access_file);
@@ -157,13 +159,14 @@ module testbench;
             memory_access_file = "mem_access.out";
         end
         mem_access_fd = $fopen(memory_access_file, "w");
-
+        
         $display("=================================");
         $display("============BEGIN================");
         $display("=================================");
 	end
 
     // Write to the trace file
+    
     initial
     begin
         repeat (10) @(posedge clk);
@@ -174,7 +177,7 @@ module testbench;
         end
         $fclose(trace_fd);
     end
-
+    
     // Finish the program when we trap
     always @(posedge clk) begin
         if (resetn && trap) begin

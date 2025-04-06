@@ -118,50 +118,43 @@ endif
 
 HEADERS = 
 
-TESTBENCH_BASE = testbench_base.v
+TESTBENCH_BASE = tests/testbench_base.v
 
-TESTBENCH = testbench.v
+TESTBENCH = tests/testbench.v
 
-SOURCES = picorv32.v imem.v dmem.v icache_1wa.v
+MEM 	  = verilog/imem.v \
+			verilog/dmem.v
 
-SYNTH_FILES = synth/picorv32.vg synth/icache_1wa.vg
+SOURCES = 	verilog/picorv32.v \
+			verilog/icache_1wa.v
 
-#SYNTH_FILES = synth/picorv32.vg synth/imem.vg synth/dmem.vg synth/icache_1wa.vg
+SYNTH_FILES = 	synth/picorv32.vg \
+				synth/icache_1wa.vg
 
 # the normal simulation executable will run your testbench on the original modules
-simv: $(TESTBENCH) $(SOURCES) $(HEADERS)
+simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
-simv_base: $(TESTBENCH_BASE) $(SOURCES) $(HEADERS)
+simv_base: $(TESTBENCH_BASE) $(SOURCES) $(DMEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
-# synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
-# 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
-# 	@$(call PRINT_COLOR, 3, this might take a while...)
-# 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
-# 	# pipefail causes the command to exit on failure even though it's piping to tee
-# 	set -o pipefail; cd synth && MODULE=$* SOURCES="$(SOURCES)" dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
-# 	@$(call PRINT_COLOR, 6, finished synthesizing $@)
-
-synth/%.vg: %.v $(TCL_SCRIPT) $(HEADERS)
+synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
 	@$(call PRINT_COLOR, 3, this might take a while...)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	# pipefail causes the command to exit on failure even though it's piping to tee
-	set -o pipefail; cd synth && \
-	MODULE=$* SOURCES="$(filter-out $(TCL_SCRIPT) $(HEADERS),$^)" \
-	dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
+	set -o pipefail; cd synth && MODULE=$* SOURCES="$(SOURCES)" dc_shell-t -f $(notdir $(TCL_SCRIPT)) | tee $*_synth.out
 	@$(call PRINT_COLOR, 6, finished synthesizing $@)
 
 # the synthesis executable runs your testbench on the synthesized versions of your modules
-syn_simv: $(TESTBENCH) $(SYNTH_FILES) $(HEADERS)
+syn_simv: $(TESTBENCH) $(SYNTH_FILES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the synthesis executable $@)
 	$(VCS) +define+SYNTH $(filter-out $(HEADERS),$^) $(LIB) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
@@ -275,13 +268,13 @@ dump_all: $(DUMP_PROGRAMS:=.dump_abi)
 .PHONY: dump_all
 
 # consume the output trace
-%.trace_dump: programs/%.dump_abi output/%.out showtrace.py 
+%.trace_dump: programs/%.dump_abi output/%.out scripts/showtrace.py 
 	@$(call PRINT_COLOR, 5, consuming trace for $*)
-	python3 showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
+	python3 scripts/showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
 
-%.syn.trace_dump: programs/%.dump_abi output/%.out showtrace.py 
+%.syn.trace_dump: programs/%.dump_abi output/%.out scripts/showtrace.py 
 	@$(call PRINT_COLOR, 5, consuming trace for $*)
-	python3 showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
+	python3 scripts/showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
 
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
@@ -388,7 +381,7 @@ nuke: clean clean_synth
 
 clean_exe:
 	@$(call PRINT_COLOR, 3, removing compiled executable files)
-	rm -rf *simv *.daidir csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
+	rm -rf *simv simv_base *.daidir csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
 	rm -rf vcdplus.vpd vc_hdrs.h       # created by simv/syn_simv/vis_simv <-- linux is tweaking
 	rm -rf verdi* novas* *fsdb*        # verdi files <-- linux is tweaking
 	rm -rf dve* inter.vpd DVEfiles     # old DVE debugger

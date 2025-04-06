@@ -15,6 +15,6 @@ for file in "${files[@]}"; do
 done
 
 fail_count=$(expr 22 - $pass_count)
-echo "Total passing files: $pass_count"
+echo "Passing benchmarks: $pass_count"
 
 echo "Failing benchmarks: $fail_count"

@@ -1,5 +1,5 @@
 module imem #(
-    parameter integer MEM_SIZE = 1*1024*1024
+    parameter MEM_SIZE = 1*1024*1024
 ) (
     input            clk,
     input            mem_valid,
