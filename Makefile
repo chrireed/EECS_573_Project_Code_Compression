@@ -276,6 +276,15 @@ dump_all: $(DUMP_PROGRAMS:=.dump_abi)
 	@$(call PRINT_COLOR, 5, consuming trace for $*)
 	python3 scripts/showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
 
+profiling:
+	mkdir -p profiling
+
+%.trace.prof: %.trace_dump profiling
+	python3 profiletracedump.py $< > profiling/$@
+
+%.bitf: %.trace_dump profiling
+	python3 profilebitfields.py output/$< > profiling/$@
+
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
 ###############################
@@ -406,6 +415,9 @@ clean_programs:
 	@$(call PRINT_COLOR, 3, removing elf files)
 	rm -rf programs/*.elf
 
+clean_prof:
+	rm -rf profiling/
+	
 .PHONY: clean nuke clean_%
 
 ######################
