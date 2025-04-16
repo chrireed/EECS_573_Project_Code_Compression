@@ -27,13 +27,13 @@ riscv_opcode_to_format = {
     '1110011': 'I',  # I-type (e.g., system instructions)
 }
 
-def parse_assembly_file(filename, num_instrs=-1):
+def parse_assembly_file(filename):
     with open(filename, 'r') as file:
         lines = file.readlines()
 
     assembly_start = False
     instructions = []
-
+    max_pc = 0
     for line in lines:
         if "MEMACCES/REGWRITE" in line:
             assembly_start = True
@@ -49,13 +49,16 @@ def parse_assembly_file(filename, num_instrs=-1):
 
             if parts[0][0] != "@": #prevent double counting
                 instruction = bin(int(parts[2], 16))[2:].zfill(32)  # Convert to binary
+                max_pc = max(int(parts[1], 16), max_pc)
                 #print(instruction)
                 instructions.append(instruction)
-    if num_instrs == -1:
-        return instructions
     print("############################################")
     print("# instrs:")
     print(len(instructions))
+    print("Max PC:")
+    print(max_pc)
+    print("Max PC (Hex): ")
+    print(hex(max_pc))
     # count the instructions and return only the top [num_instrs] common
 
     unique_instr = []
@@ -66,27 +69,36 @@ def parse_assembly_file(filename, num_instrs=-1):
             instr_count[instr] = 0
         instr_count[instr] += 1
 
-    trimmed_instr = []
+    print("# unique instrs:")
+    print(len(unique_instr))
 
     sorted_instr = sorted(instr_count.items(), key=lambda x: x[1], reverse=True)
-    sorted_instr_dict = dict(sorted_instr)
+    instr_count = dict(sorted_instr)
+    
+    print("############################################")
+    return instr_count, len(instructions), max_pc
+
+def trim_instructions(instructions, instruction_count, num_instrs=-1):
+    if num_instrs == -1:
+        return instructions, len(instructions)
+
+    trimmed_instr = {}
+
     trimmed_instr_count = 0
     num = 0
-    for entry in sorted_instr_dict:
+    for entry in instructions:
         num += 1
-        #print(entry)
-        trimmed_instr.append(entry)
-        trimmed_instr_count += sorted_instr_dict[entry]
+        trimmed_instr[entry] = instructions[entry]
+        trimmed_instr_count += instructions[entry]
         if num == num_instrs:
             break
 
+    print("############################################")
     print("Top ",num_instrs, " unique # trimmed instrs")
-    print("trimmmed instr count/Num instructions total: ", trimmed_instr_count/len(instructions))
+    print("trimmmed instr count/Num instructions total: ", trimmed_instr_count/instruction_count)
     print("############################################")
     print("\n\n")
     return trimmed_instr
-
-
 
 def get_bit_range(instruction, end, start):
     start_idx   = 32 - start
@@ -102,7 +114,7 @@ def get_opcodes(instructions):
         if opcode not in unique_opcodes:
             unique_opcodes.append(opcode)
             opcodes[opcode] = 0
-        opcodes[opcode] += 1
+        opcodes[opcode] += instructions[instr]
 
     return opcodes
 
@@ -115,7 +127,7 @@ def get_RISB_opcodes(instructions):
             if opcode not in unique_opcodes:
                 unique_opcodes.append(opcode)
                 opcodes[opcode] = 0
-            opcodes[opcode] += 1
+            opcodes[opcode] += instructions[instr]
 
     return opcodes
 
@@ -128,7 +140,7 @@ def get_UJ_opcodes(instructions):
             if opcode not in unique_opcodes:
                 unique_opcodes.append(opcode)
                 opcodes[opcode] = 0
-            opcodes[opcode] += 1
+            opcodes[opcode] += instructions[instr]
 
     return opcodes
 
@@ -144,7 +156,7 @@ def parse_funct7_funct3(instructions):
             #print(upper, "        ", lower)
             unique_bitfields.append(bitfield)
             bitfields[bitfield] = 0
-        bitfields[bitfield] += 1
+        bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -162,7 +174,7 @@ def parse_funct7_funct3_RISB(instructions):
                 #print(upper, "        ", lower)
                 unique_bitfields.append(bitfield)
                 bitfields[bitfield] = 0
-            bitfields[bitfield] += 1
+            bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -178,7 +190,7 @@ def parse_register(instructions):
             #print(upper, "        ", lower)
             unique_bitfields.append(bitfield)
             bitfields[bitfield] = 0
-        bitfields[bitfield] += 1
+        bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -196,7 +208,7 @@ def parse_register_RISB(instructions):
                 #print(upper, "        ", lower)
                 unique_bitfields.append(bitfield)
                 bitfields[bitfield] = 0
-            bitfields[bitfield] += 1
+            bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -212,7 +224,7 @@ def parse_immediate_UJ(instructions):
             if bitfield not in unique_bitfields:
                 unique_bitfields.append(bitfield)
                 bitfields[bitfield] = 0
-            bitfields[bitfield] += 1
+            bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -228,7 +240,7 @@ def parse_register_UJ(instructions):
             if bitfield not in unique_bitfields:
                 unique_bitfields.append(bitfield)
                 bitfields[bitfield] = 0
-            bitfields[bitfield] += 1
+            bitfields[bitfield] += instructions[instr]
 
     return bitfields
 
@@ -240,7 +252,7 @@ def get_sum(entries):
     
     return sum
 
-def sort_and_print(entries, limit=10):
+def sort_and_print(entries, limit=-1):
     sorted_entries = sorted(entries.items(), key=lambda x: x[1], reverse=True)
     sorted_entries_dict = dict(sorted_entries)
     num = 0
@@ -264,7 +276,7 @@ def print_stats(entries, title):
         print("Numbits needed: ", num_bits)
         print("Num/Numbits: ", sum/num_bits)
     print("========================")
-    sort_and_print(entries)
+    sort_and_print(entries, 10)
     if num_bits > 0:
         return num_bits
     return 0
@@ -359,30 +371,17 @@ def profile_various(instructions):
 def main():
     # Parse trace
     filename = sys.argv[1]
-    instructions_all = parse_assembly_file(filename)
-    # # print("Num of instructions: " + get_sum(instructions_all))
-    # # print("\n")
+    instructions_all, num_instructions, max_pc = parse_assembly_file(filename)
     profile_various(instructions_all)
 
-    instructions_trimmed = parse_assembly_file(filename, 128)
-    # print("Num of instructions: " + get_sum(instructions_trimmed))
-    # print("\n")
-    profile_various(instructions_trimmed)
+    instructions_128 = trim_instructions(instructions_all, num_instructions, 128)
+    profile_various(instructions_128)
 
-    instructions_trimmed = parse_assembly_file(filename, 256)
-    # print("Num of instructions: " + get_sum(instructions_trimmed))
-    # print("\n")
-    profile_various(instructions_trimmed)
+    instructions_256 = trim_instructions(instructions_all, num_instructions, 256)
+    profile_various(instructions_256)
 
-    instructions_trimmed = parse_assembly_file(filename, 512)
-    # print("Num of instructions: " + get_sum(instructions_trimmed))
-    # print("\n")
-    profile_various(instructions_trimmed)
-
-    #instructions_trimmed = parse_assembly_file(filename, 1024)
-    # print("Num of instructions: " + get_sum(instructions_trimmed))
-    # print("\n")
-    #profile_various(instructions_trimmed)
+    instructions_512 = trim_instructions(instructions_all, num_instructions, 512)
+    profile_various(instructions_512)
 
 if __name__ == "__main__":
     main()

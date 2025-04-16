@@ -1,1 +1,0 @@
-read_activity_file -format VCD testbench.vcd

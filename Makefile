@@ -61,6 +61,8 @@ export CLOCK_PERIOD = 2.0
 # the Verilog Compiler command and arguments
 VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+# VCS = SW_VCS=2020.12-SP2-1 vcs +vcs+dumpvars+test.vcd +vc -Mupdate -line -full64 -kdb -lca \
+#       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2023.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
 #        -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2022.06 vcs +vc -Mupdate -line -full64 -kdb -lca \
@@ -159,6 +161,8 @@ syn_simv: $(TESTBENCH) $(SYNTH_FILES) $(MEM) $(HEADERS)
 	$(VCS) +define+SYNTH $(filter-out $(HEADERS),$^) $(LIB) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
+testbench.saif:
+	vcd2saif -input testbench.vcd -o synth/testbench.saif
 # a phony target to view the slack in the *.rep synthesis report file
 slack:
 	grep --color=auto "slack" synth/*.rep
@@ -285,6 +289,9 @@ profiling:
 %.bitf: %.trace_dump profiling
 	python3 profilebitfields.py output/$< > profiling/$@
 
+%.cache: %.trace_dump profiling
+	python3 profilecachelines.py output/$*.trace_dump programs/$*.mem > profiling/$@
+
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
 ###############################
@@ -351,11 +358,14 @@ simulate_all_syn: syn_simv compile_all $(OUTPUTS:=.syn.out)
 #######################
 # ---- Module TB ---- #
 #######################
-icache_simv: icache_tb/icache_dwa_tb.v icache_dwa.v mem.v
-	$(VCS) icache_tb/icache_dwa_tb.v icache_dwa.v mem.v -o icache_simv
+icache_1wa_simv: tests/icache_1wa_tb.v verilog/icache_1wa.v verilog/imem.v
+	$(VCS) +define+DEBUG tests/icache_1wa_tb.v verilog/picorv32.v verilog/icache_1wa.v verilog/imem.v -o icache_1wa_simv
 
-%.icache.out: programs/%.mem icache_simv
-	./icache_simv +MEMORY=$< > $@
+%.icache_1wa_simv.out: programs/%.mem icache_1wa_simv
+	./icache_1wa_simv +MEMORY=$< > $@
+
+%.icache_1wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_1wa_simv
+	./icache_1wa_simv -gui=verdi +MEMORY=$<
 
 ###################
 # ---- Verdi ---- #

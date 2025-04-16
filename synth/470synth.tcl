@@ -267,16 +267,17 @@ compile -map_effort medium
 set netlist_file ./${design_name}.vg       ;# our .vg file! it's generated here!
 set ddc_file     ./${design_name}.ddc      ;# the internal dc_shell design representation (binary data)
 set svsim_file   ./${design_name}_svsim.sv ;# a simulation instantiation wrapper
-set rep_file     ./${design_name}.rep      ;# area, timing, constraint, resource, and netlist reports
+set rep_file     ./${design_name}.rep      ;# area, power, timing, constraint, resource, and netlist reports
 
 # write the design into both sv and ddc formats, also the svsim wrapper
 write_file -hierarchy -format verilog -output $netlist_file $design_name
 write_file -hierarchy -format ddc     -output $ddc_file     $design_name
 write_file            -format svsim   -output $svsim_file   $design_name
 
-# the various reports (design, area, timing, constraints, resources)
+# the various reports (design, area, power, timing, constraints, resources)
 redirect         $rep_file { report_design -nosplit }
 redirect -append $rep_file { report_area }
+redirect -append $rep_file { report_power }
 redirect -append $rep_file { report_timing -max_paths 2 -input_pins -nets -transition_time -nosplit }
 redirect -append $rep_file { report_constraint -max_delay -verbose -nosplit }
 redirect -append $rep_file { report_resources -hier }

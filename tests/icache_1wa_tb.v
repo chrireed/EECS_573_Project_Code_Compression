@@ -1,16 +1,15 @@
 `timescale 1 ns / 1 ns
 
-module icache_dwa_tb;
+module icache_1wa_tb;
     reg clk;
     reg resetn;
-
+    reg resetn_proc;
     always #2 clk = ~clk;
 
-
     // Memory wires
-    reg         proc_cache_valid;
+    wire         proc_cache_valid;
     wire        proc_cache_ready;
-    reg  [31:0] proc_cache_addr;
+    wire  [31:0] proc_cache_addr;
     wire [31:0] proc_cache_rdata;
 
     wire        cache_mem_valid;
@@ -18,42 +17,47 @@ module icache_dwa_tb;
     wire [31:0] cache_mem_addr;
     wire [31:0] cache_mem_rdata;
 
-    reg        proc_control_instr;
-    reg [31:0] proc_mem_wdata;
-    reg [3:0]  proc_mem_wstrb;
+    // Debug signals
+`ifdef DEBUG
+    wire [7:0]  dbg_tag;          // From cache
+    wire [5:0]  dbg_index;        // From cache
+    wire        dbg_hit;          // From cache
+    wire        dbg_cache_miss;   // From cache
 
-    // Filenames and descriptors
+    reg [31:0] dbg_mem_access_count = 0;
+    reg [31:0] dbg_cache_hit_count = 0;
+    reg [31:0] dbg_cache_miss_count = 0;
+`endif
+
+    // Filenames
     reg [239:0] program_memory_file;
 
     initial begin
-        proc_control_instr  = 0;
-        proc_mem_wdata      = 32'h0000_0000;
-        proc_mem_wstrb      = 4'h0;
-
-        proc_cache_valid    = 0;
-        proc_cache_addr     = 32'h0000_0000;
+`ifdef DEBUG
+        dbg_mem_access_count = 0;
+        dbg_cache_hit_count = 0;
+        dbg_cache_miss_count = 0;
+`endif
 
         clk = 1;
-        resetn = 0;
+        resetn <= 0;
+        resetn_proc <= 0;
 
-        // Load program into memory
         if ($value$plusargs("MEMORY=%s", program_memory_file)) begin
             $display("Loading memory file: %s", program_memory_file);
         end else begin
             $display("Loading default memory file: program.mem");
             program_memory_file = "program.mem";
         end
-        $display("Loading RAM contents starting at: 0x%h", 0);
         $readmemh(program_memory_file, memory.memory);
 
         $display("=================================");
         $display("============BEGIN================");
         $display("=================================");
 
-        $display("Time\tp_v\tc_r\tp_addr\t\tc_rdata\t\tc_v\tm_ready\tc_addr\tm_rdata\trst");
-
-        // Monitor the specified signals
-        $monitor("%0t\t\t%b\t%b\t%h\t%h\t%b\t%b\t%h\t%h\t",
+`ifdef DEBUG
+        $display("Time    p_v  c_r  p_addr      c_rdata     c_v  m_r   m_addr      m_rdata   hit  miss");
+        $monitor("%-8t %b    %b    %-8h    %-8h    %b    %b    %-8h    %-8h   %b    %b",
                  $time,
                  proc_cache_valid,
                  proc_cache_ready,
@@ -63,31 +67,45 @@ module icache_dwa_tb;
                  cache_mem_ready,
                  cache_mem_addr,
                  cache_mem_rdata,
-                 resetn);
-        #3
+                 dbg_hit,
+                 dbg_cache_miss);
+`else
+        $display("Time    p_v  c_r  p_addr      c_rdata     c_v  m_r  m_addr");
+        $monitor("%-8t %b    %b    %-8h    %-8h    %b    %b    %-8h",
+                 $time,
+                 proc_cache_valid,
+                 proc_cache_ready,
+                 proc_cache_addr,
+                 proc_cache_rdata,
+                 cache_mem_valid,
+                 cache_mem_ready,
+                 cache_mem_addr);
+`endif
+
+        #100 
         resetn <= 1;
+        resetn_proc <= 1;
 
-        #4
-        proc_cache_valid    = 1;
-        proc_cache_addr     = 32'h0000_0000;
+        // #4 proc_cache_valid = 1; proc_cache_addr = 32'h0000_0000;
+        // #60 proc_cache_valid = 0;
+        // #4 proc_cache_valid = 1; proc_cache_addr = 32'h0000_0004;
+        // #60 proc_cache_valid = 0;
+        // #4 proc_cache_valid = 1; proc_cache_addr = 32'h0000_0000;
+        // #60 proc_cache_valid = 0;
 
-        #20
-        proc_cache_valid    = 0;
+        // Run for awhile and check that cache isnt missing anymore
+        #500 resetn_proc <= 0;
+        #100 resetn_proc <= 1;
+        #500
 
 
-        #4
-        proc_cache_valid    = 1;
-        proc_cache_addr     = 32'h0000_0004;
-        #20
-        proc_cache_valid    = 0;
-
-        #4
-        proc_cache_valid    = 1;
-        proc_cache_addr     = 32'h0000_0000;
-        #20
-        proc_cache_valid    = 0;
-
-        #4
+`ifdef DEBUG
+        $display("\nCache Statistics:");
+        $display("Hits: %d, Misses: %d, Memory Accesses: %d",
+                dbg_cache_hit_count,
+                dbg_cache_miss_count,
+                dbg_mem_access_count);
+`endif
 
         $display("=================================");
         $display("============END==================");
@@ -95,32 +113,57 @@ module icache_dwa_tb;
         $finish;
     end
 
+`ifdef DEBUG
+    always @(posedge clk) begin
+        if (proc_cache_valid && proc_cache_ready) begin
+            if (dbg_hit) dbg_cache_hit_count <= dbg_cache_hit_count + 1;
+            else dbg_cache_miss_count <= dbg_cache_miss_count + 1;
+        end
+        if (cache_mem_valid && cache_mem_ready) begin
+            dbg_mem_access_count <= dbg_mem_access_count + 1;
+        end
+    end
+`endif
 
-    icache_direct_mapped #(
-    ) icache (
+    picorv32 #(
+    ) proc (
         .clk         (clk        ),
-        .resetn      (resetn     ),
-
-        .proc_valid   (proc_cache_valid  ),
-        .proc_ready   (proc_cache_ready  ),
-        .proc_addr    (proc_cache_addr   ),
-        .proc_rdata   (proc_cache_rdata  ),
-
-        .mem_req_valid   (cache_mem_valid  ),
-        .mem_req_ready   (cache_mem_ready  ),
-        .mem_req_addr    (cache_mem_addr   ),
-        .mem_req_rdata   (cache_mem_rdata  )
+        .resetn      (resetn_proc     ),
+        .mem_valid   (proc_cache_valid  ),
+        .mem_ready   (proc_cache_ready  ),
+        .mem_addr    (proc_cache_addr   ),
+        .mem_rdata   (proc_cache_rdata  )
     );
 
-    mem #(
-    ) memory (
+
+    icache_1wa #(
+        .CACHE_SIZE(1*1024), // Size of cache in B
+        .NUM_BLOCKS(2), // Number of blocks per cache line
+        .BLOCK_SIZE(4)  // Block size in B
+    ) icache (
+        `ifdef DEBUG
+            .debug_hit     (dbg_hit),
+            .debug_miss    (dbg_cache_miss),
+        `endif
+
         .clk         (clk        ),
-        .mem_valid   (cache_mem_valid  ),
-        .mem_ready   (cache_mem_ready  ),
-        .mem_addr    (cache_mem_addr   ),
-        .mem_wdata   (proc_mem_wdata  ),
-        .mem_wstrb   (proc_mem_wstrb  ),
-        .mem_rdata   (cache_mem_rdata  )
+        .resetn      (resetn     ),
+        .proc_valid   (proc_cache_valid),
+        .proc_ready   (proc_cache_ready),
+        .proc_addr    (proc_cache_addr),
+        .proc_rdata   (proc_cache_rdata),
+        .mem_req_valid(cache_mem_valid),
+        .mem_req_ready(cache_mem_ready),
+        .mem_req_addr(cache_mem_addr),
+        .mem_req_rdata(cache_mem_rdata)
+    );
+
+    imem memory (
+        .clk         (clk        ),
+        .mem_valid   (cache_mem_valid),
+        .mem_ready   (cache_mem_ready),
+        .mem_addr    (cache_mem_addr),
+        .mem_rdata   (cache_mem_rdata)
     );
 
 endmodule

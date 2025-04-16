@@ -170,6 +170,9 @@ initialise_benchmark (void)
 int
 verify_benchmark (int r)
 {
+  print_str("Num Primes: ");
+  print_dec(r);
+  print_str("\n");
   return NPRIMES == r;
 }
 
