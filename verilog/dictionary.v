@@ -8,39 +8,38 @@ module dictionary #(
   parameter KEY_WIDTH  = 4,
   parameter VAL_WIDTH  = 8)
   (
-  //------------Input Ports--------------
-  input                    clk;                          
-  input                    lookup_enable;   
-  input  [KEY_WIDTH-1:0]   key_data_in; 
-  input  [VAL_WIDTH-1:0]   val_lookup_in;
+  //------------Input Ports--------------                        
+  input  [KEY_WIDTH-1:0]   key_lookup_in, //Lookup this key (index bits / compressed bits)
+  input  [VAL_WIDTH-1:0]   val_lookup_in, //lookup this value (uncompressed bits for field)
   //----------Output Ports--------------
-  output reg [VAL_WIDTH-1:0]   val_out;
-  output reg                   val_lookup_res;  
+  output reg [VAL_WIDTH-1:0]   val_out,  // found this value (uncompressed bits) for the compressed bits given.
+  output reg [KEY_WIDTH-1:0]   key_out,  // found this value (compressed bits) for the uncompressed bits given.
+  output reg                   val_lookup_result  //is the uncompressed bits an entry in the table?
   //------------Internal Variables--------
-  )
+  );
   // Stored CAM memory (KEY_WIDTH entries, each 8-bit wide)
-  reg [VAL_WIDTH-1:0] cam_memory [2**KEY_WIDTH - 1:0];
+  reg [VAL_WIDTH-1:0] memory [2**KEY_WIDTH - 1:0];
 
   integer i;
 
   initial begin
-    val_lookup_res = 1'b0;
+    val_lookup_result = 1'b0;
     val_out <= {VAL_WIDTH{1'b0}};  // VAL_WIDTH-bit zero
 
     //insert mem init stuff here
   end
 
-
-  always @(posedge clk) begin
-    val_out <= memory[key_data_in];
-
-    if (lookup_enable) begin
-    for (i = 0; i < (2**KEY_WIDTH); i = i + 1) begin
-        if (cam_memory[i] == key_data_in) begin
-            val_lookup_res <= 1;
-        end
-    end
-    end
+  always @* begin
+      val_out = memory[key_lookup_in];
+      val_lookup_result = 1'b0;  
+      key_out = 0;                  
+      
+      for (i = 0; i < (2**KEY_WIDTH); i = i + 1) begin
+          if (memory[i] == key_lookup_in && ~val_lookup_result) begin
+              val_lookup_result = 1'b1;
+              key_out = i;   
+          end
+      end
   end
 
 endmodule
