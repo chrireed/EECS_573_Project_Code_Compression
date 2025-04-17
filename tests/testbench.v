@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-`define WRITE_VCD
+//`define WRITE_VCD
 module testbench;
     reg clk = 1;
     reg resetn = 0;

@@ -193,6 +193,7 @@ EMB_PROGRAMS = programs/mont64 programs/crc32 programs/cubic programs/edn \
                programs/ud programs/wikisort
 PROGRAMS = $(C_CODE:%.c=%) $(EMB_PROGRAMS)
 
+PROGRAMS_STRIP = $(PROGRAMS:programs/%=%)
 # NOTE: this is Make's pattern substitution syntax
 # see: https://www.gnu.org/software/make/manual/html_node/Text-Functions.html#Text-Functions
 # this reads as: $(var:pattern=replacement)
@@ -294,6 +295,7 @@ profiling:
 
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
+cache_all: $(PROGRAMS_STRIP:=.cache)
 ###############################
 # ---- Program Execution ---- #
 ###############################
@@ -393,7 +395,7 @@ novas.rc: initialnovas.rc
 # ---- Cleanup ---- #
 #####################
 
-clean: clean_exe clean_run_files clean_output clean_programs
+clean: clean_exe clean_run_files clean_output clean_programs clean_prof
 
 nuke: clean clean_synth
 	@$(call PRINT_COLOR, 6, note: nuke is split into multiple commands you can call separately: $^)
@@ -416,6 +418,7 @@ clean_synth:
 clean_output:
 	@$(call PRINT_COLOR, 1, removing entire output directory)
 	rm -rf output/
+	rm -f testbench.vcd
 
 clean_programs:
 	@$(call PRINT_COLOR, 3, removing program memory files)
