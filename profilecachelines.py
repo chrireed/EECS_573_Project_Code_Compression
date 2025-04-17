@@ -9,23 +9,6 @@ def has_bitfield(end, start, instruction, bitfield):
         return True
     return False
 
-# Break apart functions
-def get_register(instr):
-    upper = get_bit_range(instr, 24, 15) #rs2 rs1
-    lower = get_bit_range(instr, 11, 7) #rd
-    bitfield = upper + lower
-    return bitfield
-
-def get_opcode(instr):
-    bitfield = get_bit_range(instr, 6, 0) 
-    return bitfield
-
-def get_funct7_funct3(instr):
-    upper = get_bit_range(instr, 31, 25) #funct7 or immediate
-    lower = get_bit_range(instr, 14, 12) #funct3
-    bitfield = upper + lower
-    return bitfield
-
 def parse_mem_basic(filename, max_pc):
     with open(filename, 'r') as file:
         lines = file.readlines()

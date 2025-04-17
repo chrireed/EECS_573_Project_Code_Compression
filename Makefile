@@ -273,7 +273,7 @@ dump_all: $(DUMP_PROGRAMS:=.dump_abi)
 .PHONY: dump_all
 
 # consume the output trace
-%.trace_dump: programs/%.dump_abi output/%.out scripts/showtrace.py 
+%.trace_dump: programs/%.dump_abi output/%.out
 	@$(call PRINT_COLOR, 5, consuming trace for $*)
 	python3 scripts/showtrace.py output/$*.trace programs/$*.dump_abi > output/$@
 
@@ -295,6 +295,7 @@ profiling:
 
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
+bitf_all: $(PROGRAMS_STRIP:=.bitf)
 cache_all: $(PROGRAMS_STRIP:=.cache)
 ###############################
 # ---- Program Execution ---- #
