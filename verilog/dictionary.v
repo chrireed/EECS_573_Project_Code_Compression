@@ -27,6 +27,9 @@ module dictionary #(
     val_out <= {VAL_WIDTH{1'b0}};  // VAL_WIDTH-bit zero
 
     //insert mem init stuff here
+    for (i = 0; i < 2**KEY_WIDTH; i = i + 1) begin
+      memory[i] = i + 1; // Each memory location is filled with its index value
+    end
   end
 
   always @* begin
@@ -35,7 +38,7 @@ module dictionary #(
       key_out = 0;                  
       
       for (i = 0; i < (2**KEY_WIDTH); i = i + 1) begin
-          if (memory[i] == key_lookup_in && ~val_lookup_result) begin
+          if (memory[i] == val_lookup_in && ~val_lookup_result) begin
               val_lookup_result = 1'b1;
               key_out = i;   
           end
