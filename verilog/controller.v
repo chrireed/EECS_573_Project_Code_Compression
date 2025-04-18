@@ -89,8 +89,8 @@ module controller #(
     decompressedInst : 32'b0);
 
     assign field1_key_lookup = comp_proc_rdata[FIELD1_IDX_SIZE -1 :0];
-    assign field2_key_lookup = comp_proc_rdata[FIELD2_IDX_SIZE -1 :FIELD1_IDX_SIZE];
-    assign field3_key_lookup = comp_proc_rdata[FIELD3_IDX_SIZE -1 :FIELD1_IDX_SIZE + FIELD2_IDX_SIZE];
+    assign field2_key_lookup = comp_proc_rdata[(FIELD2_IDX_SIZE + FIELD1_IDX_SIZE) -1 : FIELD1_IDX_SIZE];
+    assign field3_key_lookup = comp_proc_rdata[15 : FIELD1_IDX_SIZE + FIELD2_IDX_SIZE];
     //only actual icache should be interfacing with memory....
     assign icache_mem_req_ready = mem_req_ready;
     assign icache_mem_req_rdata = mem_req_rdata;
@@ -116,7 +116,7 @@ module controller #(
 
         field1_key_found_latched <= field1_key_found;
         field2_key_found_latched <= field2_key_found;
-        field3_key_found_latched <= field2_key_found;
+        field3_key_found_latched <= field3_key_found;
 
         //if inst *can* be compressed and the compressed cache doesn't have it already, return it to the compressed cache.
         if (icache_hit_last_cycle && ~comp_proc_ready && field1_val_lookup_res_latched && field2_val_lookup_res_latched && field3_val_lookup_res_latched) begin
