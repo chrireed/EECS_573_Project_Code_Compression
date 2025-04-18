@@ -44,19 +44,19 @@ module controller #(
     output reg     [(FIELD1_IDX_SIZE + FIELD2_IDX_SIZE + FIELD3_IDX_SIZE) - 1:0]    comp_mem_req_rdata,
 
     // Interface to Compression Tables
-    output  reg     [FIELD1_IDX_SIZE-1:0]       field1_key_lookup, 
+    output  wire     [FIELD1_IDX_SIZE-1:0]       field1_key_lookup, 
     output  wire    [FIELD1_SIZE-1:0]           field1_val_lookup,
     input                                    field1_val_lookup_res,
     input        [FIELD1_SIZE-1:0]           field1_val_found,
     input        [FIELD1_IDX_SIZE-1:0]       field1_key_found,
 
-    output  reg     [FIELD2_IDX_SIZE-1:0]       field2_key_lookup, 
+    output  wire     [FIELD2_IDX_SIZE-1:0]       field2_key_lookup, 
     output   wire   [FIELD2_SIZE-1:0]           field2_val_lookup,
     input                                    field2_val_lookup_res,
     input        [FIELD2_SIZE-1:0]           field2_val_found,
     input        [FIELD2_IDX_SIZE-1:0]       field2_key_found,
 
-    output  reg     [FIELD3_IDX_SIZE-1:0]       field3_key_lookup, 
+    output  wire    [FIELD3_IDX_SIZE-1:0]       field3_key_lookup, 
     output  wire    [FIELD3_SIZE-1:0]           field3_val_lookup,
     input                                    field3_val_lookup_res,
     input        [FIELD3_SIZE-1:0]           field3_val_found,
@@ -67,14 +67,14 @@ module controller #(
     reg   icache_hit_last_cycle;
     reg   [32:0] icache_proc_addr_latched;
 
-    reg    [FIELD1_IDX_SIZE-1:0] field1_key_lookup_latched;
-    reg    [FIELD2_IDX_SIZE-1:0] field2_key_lookup_latched;
-    reg    [FIELD3_IDX_SIZE-1:0] field3_key_lookup_latched;
+    reg     field1_val_lookup_res_latched;
+    reg     field2_val_lookup_res_latched;
+    reg     field3_val_lookup_res_latched;
 
-    reg    field1_key_found_latched;
-    reg    field2_key_found_latched;
-    reg    field3_key_found_latched;
-    reg    decompressedInst;
+    reg    [FIELD1_IDX_SIZE-1:0] field1_key_found_latched;
+    reg    [FIELD2_IDX_SIZE-1:0] field2_key_found_latched;
+    reg    [FIELD3_IDX_SIZE-1:0] field3_key_found_latched;
+    wire    [31:0] decompressedInst;
     //connect caches to processor.
     assign icache_proc_valid = proc_valid;
     assign icache_proc_addr = proc_addr;
@@ -84,10 +84,13 @@ module controller #(
     assign comp_proc_addr = proc_valid ? proc_addr : icache_hit_last_cycle ? icache_proc_addr_latched : 32'b0;
 
     assign proc_ready = icache_proc_ready | comp_proc_ready;
+    assign decompressedInst = {field3_val_found[9:3],field2_val_found[14:5],field3_val_found[2:0],field2_val_found[4:0],field1_val_found[6:0]};
     assign proc_rdata = icache_proc_ready ? icache_proc_rdata : (comp_proc_ready ? 
-    {field3_val_found[9:3],field2_val_found[14:5],field3_val_found[2:0],field2_val_found[4:0],field1_val_found[6:0]} : 32'b0);
+    decompressedInst : 32'b0);
 
-    
+    assign field1_key_lookup = comp_proc_rdata[FIELD1_IDX_SIZE -1 :0];
+    assign field2_key_lookup = comp_proc_rdata[FIELD2_IDX_SIZE -1 :FIELD1_IDX_SIZE];
+    assign field3_key_lookup = comp_proc_rdata[FIELD3_IDX_SIZE -1 :FIELD1_IDX_SIZE + FIELD2_IDX_SIZE];
     //only actual icache should be interfacing with memory....
     assign icache_mem_req_ready = mem_req_ready;
     assign icache_mem_req_rdata = mem_req_rdata;
@@ -107,18 +110,18 @@ module controller #(
         icache_proc_addr_latched <= icache_proc_addr;
 
         comp_mem_req_ready <= 1'b0;
-        field1_key_lookup_latched <= field1_val_lookup;
-        field2_key_lookup_latched <= field2_val_lookup;
-        field3_key_lookup_latched <= field3_val_lookup;
+        field1_val_lookup_res_latched <= field1_val_lookup_res;
+        field2_val_lookup_res_latched <= field2_val_lookup_res;
+        field3_val_lookup_res_latched <= field3_val_lookup_res;
 
         field1_key_found_latched <= field1_key_found;
         field2_key_found_latched <= field2_key_found;
         field3_key_found_latched <= field2_key_found;
 
         //if inst *can* be compressed and the compressed cache doesn't have it already, return it to the compressed cache.
-        if (icache_hit_last_cycle && ~comp_proc_ready && field1_key_found_latched && field2_key_found_latched && field3_key_found_latched) begin
+        if (icache_hit_last_cycle && ~comp_proc_ready && field1_val_lookup_res_latched && field2_val_lookup_res_latched && field3_val_lookup_res_latched) begin
                 comp_mem_req_ready <= 1'b1;
-                comp_mem_req_rdata <= {field1_key_found_latched, field2_key_found_latched, field3_key_found_latched};
+                comp_mem_req_rdata <= {field3_key_found_latched, field2_key_found_latched, field1_key_found_latched};
         end
         
         

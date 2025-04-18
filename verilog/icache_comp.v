@@ -1,4 +1,4 @@
-module icache_1wa #(
+module icache_comp #(
     parameter CACHE_SIZE = 1*1024, // Size of cache in B
     parameter NUM_BLOCKS = 1, // Number of blocks per cache line
     parameter BLOCK_SIZE = 4  // Block size in B
