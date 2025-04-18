@@ -55,6 +55,13 @@ module testbench;
     integer     trace_fd;
     integer     mem_access_fd;
     
+    // Cache stat signals
+    `ifdef DEBUG_CACHE
+        wire        dbg_miss;   // From cache
+
+        real dbg_imem_access_count = 0;
+        real dbg_cache_miss_count = 0;
+    `endif
 
     picorv32 #(
     ) proc (
@@ -78,8 +85,16 @@ module testbench;
     assign icache_valid = proc_mem_valid && proc_mem_instr;
     assign icache_addr  = proc_mem_addr;
 
+`ifdef USE_1WA_ICACHE
     icache_1wa #(
+        .CACHE_SIZE(4*1024), // Size of cache in B
+        .NUM_BLOCKS(4), // Number of blocks per cache line
+        .BLOCK_SIZE(4)  // Block size in B
     ) icache (
+        `ifdef DEBUG_CACHE
+            .debug_miss    (dbg_miss),
+        `endif
+
         .clk         (clk        ),
         .resetn      (resetn     ),
 
@@ -93,6 +108,33 @@ module testbench;
         .mem_req_addr    (icache_mem_addr   ),
         .mem_req_rdata   (icache_mem_rdata  )
     );
+`endif
+
+`ifdef USE_XWA_ICACHE
+    icache_Xwa #(
+        .CACHE_SIZE(4*1024), // Size of cache in B
+        .NUM_WAYS  (4), // Cache associativity
+        .NUM_BLOCKS(4), // Number of blocks per cache line
+        .BLOCK_SIZE(4)  // Block size in B
+    ) icache (
+        `ifdef DEBUG_CACHE
+            .debug_miss    (dbg_miss),
+        `endif
+
+        .clk         (clk        ),
+        .resetn      (resetn     ),
+
+        .proc_valid   (icache_valid  ),
+        .proc_ready   (icache_ready  ),
+        .proc_addr    (icache_addr   ),
+        .proc_rdata   (icache_rdata  ),
+
+        .mem_req_valid   (icache_mem_valid  ),
+        .mem_req_ready   (icache_mem_ready  ),
+        .mem_req_addr    (icache_mem_addr   ),
+        .mem_req_rdata   (icache_mem_rdata  )
+    );
+`endif
 
     assign imem_valid = icache_mem_valid;
     assign imem_addr  = icache_mem_addr;
@@ -182,6 +224,16 @@ module testbench;
     always @(posedge clk) begin
         if (resetn && trap) begin
             repeat (10) @(posedge clk);
+            `ifdef DEBUG_CACHE
+                // Print cache stats
+                $display("\nIcache Statistics:");
+                $display("Hits: %d, Misses: %d, Imem Accesses: %d",
+                        dbg_imem_access_count - dbg_cache_miss_count,
+                        dbg_cache_miss_count,
+                        dbg_imem_access_count);
+                $display("Miss rate: %f",
+                        (dbg_cache_miss_count) / dbg_imem_access_count);
+            `endif
             $display("=================================");
             $display("============TRAP=================");
             $display("=================================");
@@ -203,8 +255,14 @@ module testbench;
 
             if (|proc_mem_wstrb)
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
-            else 
+            else begin
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
+                // Count imem accesses
+                `ifdef DEBUG_CACHE
+                    if(proc_mem_instr)
+                        dbg_imem_access_count <= dbg_imem_access_count + 1;
+                `endif
+                end
 
             if (^proc_mem_addr === 1'bx ||
                     (proc_mem_wstrb[0] && ^proc_mem_wdata[ 7: 0] == 1'bx) ||
@@ -216,6 +274,13 @@ module testbench;
             end
         end
     end
+
+    // Cache stats
+    `ifdef DEBUG_CACHE
+        always @(posedge dbg_miss) begin
+            dbg_cache_miss_count <= dbg_cache_miss_count + 1;
+        end
+    `endif
 
 `ifdef WRITE_VCD
     initial begin

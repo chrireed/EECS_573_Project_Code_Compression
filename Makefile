@@ -59,8 +59,12 @@
 export CLOCK_PERIOD = 2.0
 
 # the Verilog Compiler command and arguments
-VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
-      -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
+#       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_1WA_ICACHE \
+# 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
+VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_XWA_ICACHE \
+	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vcs+dumpvars+test.vcd +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2023.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
@@ -128,10 +132,12 @@ MEM 	  = verilog/imem.v \
 			verilog/dmem.v
 
 SOURCES = 	verilog/picorv32.v \
-			verilog/icache_1wa.v
+			verilog/icache_1wa.v \
+			verilog/icache_Xwa.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
-				synth/icache_1wa.vg
+				synth/icache_1wa.vg \
+				synth/icache_Xwa.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)
@@ -362,13 +368,31 @@ simulate_all_syn: syn_simv compile_all $(OUTPUTS:=.syn.out)
 # ---- Module TB ---- #
 #######################
 icache_1wa_simv: tests/icache_1wa_tb.v verilog/icache_1wa.v verilog/imem.v
-	$(VCS) +define+DEBUG tests/icache_1wa_tb.v verilog/picorv32.v verilog/icache_1wa.v verilog/imem.v -o icache_1wa_simv
+	$(VCS) +define+DEBUG_CACHE tests/icache_1wa_tb.v verilog/picorv32.v verilog/icache_1wa.v verilog/imem.v -o icache_1wa_simv
 
-%.icache_1wa_simv.out: programs/%.mem icache_1wa_simv
-	./icache_1wa_simv +MEMORY=$< > $@
+%.icache_1wa_simv.out: programs/%.mem icache_1wa_simv output
+	./icache_1wa_simv +MEMORY=$< > output/$@
 
 %.icache_1wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_1wa_simv
 	./icache_1wa_simv -gui=verdi +MEMORY=$<
+
+icache_2wa_simv: tests/icache_2wa_tb.v verilog/icache_Xwa.v verilog/imem.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_2wa_tb.v verilog/picorv32.v verilog/icache_Xwa.v verilog/imem.v -o icache_2wa_simv
+
+%.icache_2wa_simv.out: programs/%.mem icache_2wa_simv output
+	./icache_2wa_simv +MEMORY=$< > output/$@
+
+%.icache_2wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_2wa_simv
+	./icache_2wa_simv -gui=verdi +MEMORY=$<
+
+icache_4wa_simv: tests/icache_4wa_tb.v verilog/icache_Xwa.v verilog/imem.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_4wa_tb.v verilog/picorv32.v verilog/icache_Xwa.v verilog/imem.v -o icache_4wa_simv
+
+%.icache_4wa_simv.out: programs/%.mem icache_4wa_simv output
+	./icache_4wa_simv +MEMORY=$< > output/$@
+
+%.icache_4wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_4wa_simv
+	./icache_4wa_simv -gui=verdi +MEMORY=$<
 
 ###################
 # ---- Verdi ---- #

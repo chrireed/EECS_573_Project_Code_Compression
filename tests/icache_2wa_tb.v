@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ns
 
-module icache_1wa_tb;
+module icache_2wa_tb;
     reg clk;
     reg resetn;
     reg resetn_proc;
@@ -92,25 +92,60 @@ module icache_1wa_tb;
         resetn <= 1;
         resetn_proc <= 1;
 
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000; // miss
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0004;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010; // miss
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0008; // miss
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0004;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0018; // miss
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0008;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0004; // hit
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0014; // hit
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_000C;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_000c; // hit
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_001c; // hit
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0004;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0020; // miss, evict 0x0/0x4
         #50 tb_cache_valid = 0;
-        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000; // miss, evict 0x10/0x14
+        #50 tb_cache_valid = 0;
+        // #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010; // miss, evict 0x20/0x24
+        // #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0008; // hit
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0018; // hit
+        #50 tb_cache_valid = 0;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0004; // hit
+        #50 tb_cache_valid = 0;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0020; // hit
+        #50 tb_cache_valid = 0;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000; // hit
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010; // miss, evict 0x20/0x24
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0008; // miss, evict 0x20/0x24
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0018; // hit
+        #50 tb_cache_valid = 0;
+
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0030; // miss, evict 0x0/0x4
+        #50 tb_cache_valid = 0;
+
+        // #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0000; // miss, evict 0x30/0x34
+        // #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0010; // hit
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0008; // hit
+        #50 tb_cache_valid = 0;
+        #50 tb_cache_valid = 1; tb_cache_addr = 32'h0000_0018; // hit
         #50 tb_cache_valid = 0;
 
         // // Run for awhile and check that cache isnt missing anymore
@@ -153,9 +188,9 @@ module icache_1wa_tb;
     // );
 
 
-    icache_1wa #(
-        .CACHE_SIZE(16), // Size of cache in B
-        .NUM_WAYS(1),
+    icache_Xwa #(
+        .CACHE_SIZE(32), // Size of cache in B
+        .NUM_WAYS  (2), // Cache associativity
         .NUM_BLOCKS(2), // Number of blocks per cache line
         .BLOCK_SIZE(4)  // Block size in B
     ) icache (

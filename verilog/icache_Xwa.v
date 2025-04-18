@@ -1,6 +1,7 @@
-// SIMPLE DIRECT MAPPED SIZE CONFIGURABLE CACHE
-module icache_1wa #(
+// SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE
+module icache_Xwa #(
     parameter CACHE_SIZE = 4*1024, // Size of cache in B
+    parameter NUM_WAYS   = 2, // Number of ways
     parameter NUM_BLOCKS = 4, // Number of blocks per cache line
     parameter BLOCK_SIZE = 4  // Block size in B
 
@@ -25,21 +26,29 @@ module icache_1wa #(
 
 );
     localparam NUM_LINES   = CACHE_SIZE / (NUM_BLOCKS * BLOCK_SIZE);
-    localparam INDEX_BITS  = $clog2(NUM_LINES);
+    localparam LINE_BITS   = $clog2(NUM_LINES);
+    localparam NUM_SETS    = NUM_LINES/NUM_WAYS;
+    localparam INDEX_BITS  = $clog2(NUM_SETS);
+    localparam WAY_BITS    = $clog2(NUM_WAYS);
     localparam OFFSET_BITS = $clog2(NUM_BLOCKS);
     localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
     localparam TAG_BITS    = 32 - INDEX_BITS - OFFSET_BITS - BYTE_OFFSET_BITS;
 
     
-    reg [TAG_BITS-1:0]                  tags  [0:NUM_LINES-1];
-    reg [8*BLOCK_SIZE*NUM_BLOCKS-1:0]   data  [0:NUM_LINES-1];
-    reg                                 valid [0:NUM_LINES-1];
+    reg [TAG_BITS-1:0]                  tags    [0:NUM_SETS-1][0:NUM_LINES/NUM_SETS-1];
+    reg [8*BLOCK_SIZE*NUM_BLOCKS-1:0]   data    [0:NUM_SETS-1][0:NUM_LINES/NUM_SETS-1];
+    reg                                 valid   [0:NUM_SETS-1][0:NUM_LINES/NUM_SETS-1];
+    reg [WAY_BITS-1:0]                  replace [0:NUM_SETS-1];
 
     wire [INDEX_BITS-1:0]   index;
     wire [TAG_BITS-1:0]     tag;   
     wire [OFFSET_BITS-1:0]  block_offset;  
 
     integer i;
+    integer j;
+    integer k;
+    integer way_idx;
+
     reg cache_miss;
     reg xfer;
     reg [OFFSET_BITS-1:0] write_block;
@@ -61,42 +70,52 @@ module icache_1wa #(
             mem_req_valid   <= 0;
             cache_miss      <= 0;
             xfer            <= 0;
-            for (i = 0; i < NUM_LINES; i = i + 1) begin
-                valid[i] <= 0;
-            end
-        end 
-        else begin
-            if (proc_valid & ~xfer) begin
-                if (~cache_miss && valid[index] && (tags[index] == tag)) begin
-                    // Cache hit and read
-                    proc_ready <= 1;
-                    proc_rdata <= data[index][block_offset*32 +: 32]; // Cool way to select bit rage [LSB +: WIDTH UPWARDS]
-                    xfer <= 1;
-                end else if(~cache_miss) begin
-                    // Cache miss
-                    proc_ready <= 0;
-                    cache_miss <= 1;
-                    proc_req_addr <= proc_addr;
-                    write_block  <= {OFFSET_BITS{1'b0}};
+            for (i = 0; i < NUM_SETS; i = i + 1) begin
+                for(j = 0; j < NUM_WAYS; j = j + 1) begin
+                    valid[i][j] <= 0;
                 end
-                if(cache_miss) begin
+            end
+            for (k = 0; k < NUM_SETS; k = k + 1) begin
+                replace[k] <= 0;
+            end
+        end else begin
+            // Make sure a transfer isn't already in progress
+            if (proc_valid & ~xfer) begin
+                if(~cache_miss) begin
+                    // Assume cache miss
+                    proc_ready      <= 0;
+                    cache_miss      <= 1;
+                    proc_req_addr   <= proc_addr;
+                    write_block     <= {OFFSET_BITS{1'b0}};
+                    // Check for hit
+                    for (way_idx = 0; way_idx < NUM_WAYS; way_idx = way_idx + 1) begin
+                        if (~cache_miss && valid[index][way_idx] && (tags[index][way_idx] == tag)) begin
+                            // Cache hit and read
+                            proc_ready <= 1;
+                            proc_rdata <= data[index][way_idx][block_offset*32 +: 32]; // Cool way to select bit rage [LSB +: WIDTH UPWARDS]
+                            xfer <= 1;
+                            cache_miss <= 0; // Cancel miss
+                        end
+                    end // end for way_idx
+                end else begin
                     mem_req_addr  <= {proc_req_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
                     if(~mem_req_ready) begin
                         // Initiate a read transaction with mem
                         mem_req_valid <= 1;
                     end else begin
                         // Mem has data on bus, read it in
-                        data[index][write_block*32 +: 32] <= mem_req_rdata;
+                        data[index][replace[index]][write_block*32 +: 32] <= mem_req_rdata;
                         mem_req_valid     <= 0;
 
                         // Check if we've recieved all blocks of data
                         if(write_block === NUM_BLOCKS - 1) begin
-                            tags[index]  <= tag;
-                            valid[index] <= 1;
-                            cache_miss   <= 0;
+                            tags[index][replace[index]]  <= tag;
+                            valid[index][replace[index]] <= 1;
+                            replace[index]          <= replace[index] + 1;
+                            cache_miss              <= 0;
                         end else begin
                             write_block <= write_block + 1;
-                        end // end if write_block == OFFSET_BITS - 1
+                        end // end if write_block == NUM_BLOCKS - 1
 
                     end // end if ~mem_req_ready
 
