@@ -394,6 +394,10 @@ icache_4wa_simv: tests/icache_4wa_tb.v verilog/icache_Xwa.v verilog/imem.v
 %.icache_4wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_4wa_simv
 	./icache_4wa_simv -gui=verdi +MEMORY=$<
 
+controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
+	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
+
+
 ###################
 # ---- Verdi ---- #
 ###################
@@ -427,10 +431,13 @@ nuke: clean clean_synth
 
 clean_exe:
 	@$(call PRINT_COLOR, 3, removing compiled executable files)
-	rm -rf *simv simv_base *.daidir csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
+	rm -rf verdiLog
+	rm -rf *.daidir
+	rm -rf *simv simv_base csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
 	rm -rf vcdplus.vpd vc_hdrs.h       # created by simv/syn_simv/vis_simv <-- linux is tweaking
 	rm -rf verdi* novas* *fsdb*        # verdi files <-- linux is tweaking
 	rm -rf dve* inter.vpd DVEfiles     # old DVE debugger
+
 
 clean_run_files:
 	@$(call PRINT_COLOR, 3, removing per-run outputs)
