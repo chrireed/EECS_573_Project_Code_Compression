@@ -95,8 +95,8 @@ def trim_instructions(instructions, instruction_count, num_instrs=-1):
             break
 
     print("\n############################################")
-    print("Top ",num_instrs, " unique # trimmed instrs")
-    print("trimmmed instr count/Num instructions total: ", trimmed_instr_count/instruction_count)
+    print("Top ",num_instrs, " unique # trimmed instructions")
+    print("# trimmmed instructions executed / # total executed instructions: ", trimmed_instr_count/instruction_count)
     print("############################################")
     trimmed_instr = sort_entries(trimmed_instr)
     return trimmed_instr
@@ -753,6 +753,17 @@ def main():
     # Parse trace
     filename = sys.argv[1]
 
+    # Remove prefix (everything before 'output/')
+    prefix_removed = filename.split("output/")[-1]  # → "[program_name].out"
+
+    # Remove suffix ('.out')
+    suffix_removed = prefix_removed.replace(".trace_dump", "")  # → "[program_name]"
+
+    # Remove brackets if needed
+    program_name = suffix_removed.strip("[]")  # → "program_name"
+
+    print(program_name)  # Output: program_name
+
     instructions_all, num_instructions, max_pc = parse_assembly_file(filename)
     get_instr_ratio(instructions_all)
     # profile_various(instructions_all)
@@ -768,7 +779,7 @@ def main():
     instructions_256 = trim_instructions(instructions_all, num_instructions, 256)
     get_instr_ratio(instructions_256)
     #profile_various(instructions_256)
-    profile_NAIVE_R_TYPE(instructions_256, instructions_all, True)
+    profile_NAIVE_R_TYPE(instructions_256, instructions_all, True, "NAIVE_R_TYPE_" + program_name)
     profile_NAIVE_I_TYPE(instructions_256)
 
     instructions_512 = trim_instructions(instructions_all, num_instructions, 512)

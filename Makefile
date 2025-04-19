@@ -56,7 +56,7 @@
 ######################################################
 
 # this is a global clock period variable used in the tcl script and referenced in testbenches
-export CLOCK_PERIOD = 2.0
+export CLOCK_PERIOD = 20.0
 
 # the Verilog Compiler command and arguments
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
@@ -296,8 +296,8 @@ profiling:
 %.bitf: %.trace_dump profiling
 	python3 profilebitfields.py output/$< > profiling/$@
 
-%.cache: %.trace_dump profiling
-	python3 profilecachelines.py output/$*.trace_dump programs/$*.mem > profiling/$@
+%.cache: %.bitf profiling
+	python3 profilecachelines.py $* programs/$*.mem > profiling/$@
 
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)

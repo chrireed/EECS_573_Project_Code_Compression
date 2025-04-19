@@ -1,6 +1,9 @@
 // SIMPLE DIRECT MAPPED SIZE CONFIGURABLE CACHE
+
+`define DEBUG_CACHE
+
 module icache_1wa #(
-    parameter CACHE_SIZE = 4*1024, // Size of cache in B
+    parameter CACHE_SIZE = 1*1024, // Size of cache in B
     parameter NUM_BLOCKS = 4, // Number of blocks per cache line
     parameter BLOCK_SIZE = 4  // Block size in B
 
