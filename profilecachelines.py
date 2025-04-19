@@ -9,23 +9,23 @@ def has_bitfield(end, start, instruction, bitfield):
         return True
     return False
 
-def parse_mem_basic(filename, max_pc):
+def parse_mem_NAIVE_R_TYPE(filename, max_pc):
     with open(filename, 'r') as file:
         lines = file.readlines()
 
     mem = {}
     mem["instr"] = []
-    mem["opcode"] = []
-    mem["f37"] = []
-    mem["reg"] = []
+    mem["field1"] = []
+    mem["field2"] = []
+    mem["field3"] = []
     last_line = int(max_pc/4)
     i = 0
     for line in lines:
         instr = bin(int(line, 16))[2:].zfill(32)
         mem["instr"].append(instr)
-        mem["opcode"].append(get_opcode(instr))
-        mem["f37"].append(get_funct7_funct3(instr))
-        mem["reg"].append(get_register(instr))
+        mem["field1"].append(get_opcode(instr))
+        mem["field2"].append(get_funct7_funct3(instr))
+        mem["field3"].append(get_register(instr))
         if i == last_line:
             break
         i += 1
@@ -34,7 +34,7 @@ def parse_mem_basic(filename, max_pc):
     print("############################################")
     print("Parsed mem file")
     print("# instrs:")
-    print(len(mem["opcode"]))
+    print(len(mem["instr"]))
     print("last line:")
     print(last_line)
     print("############################################")
@@ -124,56 +124,100 @@ def analyze_cache(cache_size, cache_ways, cache_blocks, instr_size, compressible
 
     print("############################################")
 
+def analyze_num_occurences(top_instructions, mem, compressible, block_size):
+    print("############################################")
+    
+    # Count how many times out top [num] instruction appear in memory
+    unique_instrs = []
+    instr_count = {}
+    for instr in mem["instr"]: 
+        if instr in top_instructions:
+            if instr not in unique_instrs:
+                unique_instrs.append(instr)
+                instr_count[instr] = 0
+            instr_count[instr] += 1
+    print("BLOCK SIZE: " + str(block_size))
+    print("Top " + str(len(top_instructions)) + " instructions memory occurences")
+    # for instr in instr_count:
+    #     print(instr + " | # in mem: " + str(instr_count[instr]) + " | # in mem/ # executed " + str(instr_count[instr] / top_instructions[instr]))
+    
+    # For our top [num] instructions, find out how many of them are in compressible cache lines
+    total_num_top_compressible_instructions = 0
+    for instr_base_idx in range(0, len(mem["instr"]), block_size):
+            num_compressible = 0
+            num_instructions_in_top = 0
+            for idx in range(instr_base_idx, instr_base_idx + block_size, 1):
+                if idx < len(mem["instr"]):
+                    if compressible[idx]:
+                        num_compressible += 1
+                    if mem["instr"][idx] in top_instructions:
+                        num_instructions_in_top += 1
+                    if(num_compressible == block_size):
+                        total_num_top_compressible_instructions += num_instructions_in_top
+
+    print("# occurences of top " + str(len(top_instructions)) + " instructions in mem: " + str(get_sum(instr_count)))
+    print("# occurences that are in compressible cache lines: " + str(total_num_top_compressible_instructions))
+    print("ratio: " + str(total_num_top_compressible_instructions / get_sum(instr_count)))
+            
+    print("############################################")
 
     
 
 def main():
     # Parse trace
-    trace_dump_file = sys.argv[1]
-    mem_file    = sys.argv[2]
+    program_name = sys.argv[1]
+    mem_file     = sys.argv[2]
 
-
-    cache_size = [256] # in bytes
-    cache_instr_per_line = [1]
-    cache_ways = [1]
-
+    trace_dump_file = "output/" + program_name + ".trace_dump"
     instructions_all, num_instructions, max_pc = parse_assembly_file(trace_dump_file)
-    instructions_256 = trim_instructions(instructions_all, num_instructions, 256)
 
+    profiling_type = "NAIVE_R_TYPE_"
+    field1_mem_filepath = "profiling/field1_" + profiling_type + program_name + ".mem"
+    field2_mem_filepath = "profiling/field2_" + profiling_type + program_name + ".mem"
+    field3_mem_filepath = "profiling/field3_" + profiling_type + program_name + ".mem"
 
-    opcodes = get_opcodes(instructions_256)
-    bitfields_funct7_funct3 = parse_funct7_funct3(instructions_256)
-    bitfields_register = parse_register(instructions_256)
+    field1 = {}
+    field2 = {}
+    field3 = {}
 
-    print_stats(opcodes, "opcodes[6:0]")
-    print_stats(bitfields_register, "registers[24:15][11:7]")
-    print_stats(bitfields_funct7_funct3, "funct7_funct3[31:25][14:12]")
-    # print("Opcodes")
-    # sort_and_print(opcodes)
-    # print("f37")
-    # sort_and_print(bitfields_funct7_funct3)
-    # print("reg")
-    # sort_and_print(bitfields_register)
+    with open(field1_mem_filepath, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            field1[line.strip()] = 0
+
+    with open(field2_mem_filepath, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            field2[line.strip()] = 0
+
+    with open(field3_mem_filepath, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            field3[line.strip()] = 0
+
+    print(field1)
+    print(field2)
+    print(field3)
 
     # Parse mem file
-    mem_parsed, last_line = parse_mem_basic(mem_file, max_pc)
+    mem_parsed, last_line = parse_mem_NAIVE_R_TYPE(mem_file, max_pc)
 
     # Count how any bitfield matches each instruction has
     num_fields = 3
     line_matches = [0] * last_line
     line_num = 0
-    for entry in mem_parsed["opcode"]:
-        if entry in opcodes:
+    for entry in mem_parsed["field1"]:
+        if entry in field1:
             line_matches[line_num] += 1
         line_num += 1
     line_num = 0
-    for entry in mem_parsed["f37"]:
-        if entry in bitfields_funct7_funct3:
+    for entry in mem_parsed["field2"]:
+        if entry in field2:
             line_matches[line_num] += 1
         line_num += 1
     line_num = 0
-    for entry in mem_parsed["reg"]:
-        if entry in bitfields_register:
+    for entry in mem_parsed["field3"]:
+        if entry in field3:
             line_matches[line_num] += 1
         line_num += 1
     
@@ -197,41 +241,43 @@ def main():
         field2 = get_funct7_funct3(instr)
         field3 = get_register(instr)
         line +=1
-        # print("NM: " + num_matches + " M?: " + match + " Instr: " + instr + " Opcode " + field1 + " f73: " + field2 + " reg: " + field3)
+        #print("NM: " + num_matches + " M?: " + match + " Instr: " + instr + " Opcode " + field1 + " f73: " + field2 + " reg: " + field3)
 
-    analyze_cache(1024, 1, 1, 16, compressible, max_pc)
-    analyze_cache(1024, 1, 2, 16, compressible, max_pc)
-    analyze_cache(1024, 1, 4, 16, compressible, max_pc)
-    analyze_cache(1024, 1, 8, 16, compressible, max_pc)
-    analyze_cache(1024, 2, 1, 16, compressible, max_pc)
-    analyze_cache(1024, 2, 2, 16, compressible, max_pc)
-    analyze_cache(1024, 2, 4, 16, compressible, max_pc)
-    analyze_cache(1024, 2, 8, 16, compressible, max_pc)
-    analyze_cache(1024, 4, 1, 16, compressible, max_pc)
-    analyze_cache(1024, 4, 2, 16, compressible, max_pc)
-    analyze_cache(1024, 4, 4, 16, compressible, max_pc)
-    analyze_cache(1024, 4, 8, 16, compressible, max_pc)
-    analyze_cache(1024, 8, 1, 16, compressible, max_pc)
-    analyze_cache(1024, 8, 2, 16, compressible, max_pc)
-    analyze_cache(1024, 8, 4, 16, compressible, max_pc)
-    analyze_cache(1024, 8, 8, 16, compressible, max_pc)
+    # Analyze various cache configurations
 
-    analyze_cache(512, 1, 1, 16, compressible, max_pc)
-    analyze_cache(512, 1, 2, 16, compressible, max_pc)
-    analyze_cache(512, 1, 4, 16, compressible, max_pc)
-    analyze_cache(512, 1, 8, 16, compressible, max_pc)
-    analyze_cache(512, 2, 1, 16, compressible, max_pc)
-    analyze_cache(512, 2, 2, 16, compressible, max_pc)
-    analyze_cache(512, 2, 4, 16, compressible, max_pc)
-    analyze_cache(512, 2, 8, 16, compressible, max_pc)
-    analyze_cache(512, 4, 1, 16, compressible, max_pc)
-    analyze_cache(512, 4, 2, 16, compressible, max_pc)
-    analyze_cache(512, 4, 4, 16, compressible, max_pc)
-    analyze_cache(512, 4, 8, 16, compressible, max_pc)
-    analyze_cache(512, 8, 1, 16, compressible, max_pc)
-    analyze_cache(512, 8, 2, 16, compressible, max_pc)
-    analyze_cache(512, 8, 4, 16, compressible, max_pc)
-    analyze_cache(512, 8, 8, 16, compressible, max_pc)
+    # analyze_cache(1024, 1, 1, 16, compressible, max_pc)
+    # analyze_cache(1024, 1, 2, 16, compressible, max_pc)
+    # analyze_cache(1024, 1, 4, 16, compressible, max_pc)
+    # analyze_cache(1024, 1, 8, 16, compressible, max_pc)
+    # analyze_cache(1024, 2, 1, 16, compressible, max_pc)
+    # analyze_cache(1024, 2, 2, 16, compressible, max_pc)
+    # analyze_cache(1024, 2, 4, 16, compressible, max_pc)
+    # analyze_cache(1024, 2, 8, 16, compressible, max_pc)
+    # analyze_cache(1024, 4, 1, 16, compressible, max_pc)
+    # analyze_cache(1024, 4, 2, 16, compressible, max_pc)
+    # analyze_cache(1024, 4, 4, 16, compressible, max_pc)
+    # analyze_cache(1024, 4, 8, 16, compressible, max_pc)
+    # analyze_cache(1024, 8, 1, 16, compressible, max_pc)
+    # analyze_cache(1024, 8, 2, 16, compressible, max_pc)
+    # analyze_cache(1024, 8, 4, 16, compressible, max_pc)
+    # analyze_cache(1024, 8, 8, 16, compressible, max_pc)
+
+    # analyze_cache(512, 1, 1, 16, compressible, max_pc)
+    # analyze_cache(512, 1, 2, 16, compressible, max_pc)
+    # analyze_cache(512, 1, 4, 16, compressible, max_pc)
+    # analyze_cache(512, 1, 8, 16, compressible, max_pc)
+    # analyze_cache(512, 2, 1, 16, compressible, max_pc)
+    # analyze_cache(512, 2, 2, 16, compressible, max_pc)
+    # analyze_cache(512, 2, 4, 16, compressible, max_pc)
+    # analyze_cache(512, 2, 8, 16, compressible, max_pc)
+    # analyze_cache(512, 4, 1, 16, compressible, max_pc)
+    # analyze_cache(512, 4, 2, 16, compressible, max_pc)
+    # analyze_cache(512, 4, 4, 16, compressible, max_pc)
+    # analyze_cache(512, 4, 8, 16, compressible, max_pc)
+    # analyze_cache(512, 8, 1, 16, compressible, max_pc)
+    # analyze_cache(512, 8, 2, 16, compressible, max_pc)
+    # analyze_cache(512, 8, 4, 16, compressible, max_pc)
+    # analyze_cache(512, 8, 8, 16, compressible, max_pc)
 
     analyze_cache(256, 1, 1, 16, compressible, max_pc)
     analyze_cache(256, 1, 2, 16, compressible, max_pc)
@@ -249,6 +295,19 @@ def main():
     analyze_cache(256, 8, 2, 16, compressible, max_pc)
     analyze_cache(256, 8, 4, 16, compressible, max_pc)
     analyze_cache(256, 8, 8, 16, compressible, max_pc)
+
+    instructions_128 = trim_instructions(instructions_all, num_instructions, 128)
+    instructions_256 = trim_instructions(instructions_all, num_instructions, 256)
+    instructions_512 = trim_instructions(instructions_all, num_instructions, 512)
+
+    # Get info regarding how often our top instructions actually fit into cache lines
+
+    analyze_num_occurences(instructions_128, mem_parsed, compressible, 2)
+    analyze_num_occurences(instructions_128, mem_parsed, compressible, 4)
+    analyze_num_occurences(instructions_256, mem_parsed, compressible, 2)
+    analyze_num_occurences(instructions_256, mem_parsed, compressible, 4)
+    analyze_num_occurences(instructions_512, mem_parsed, compressible, 2)
+    analyze_num_occurences(instructions_512, mem_parsed, compressible, 4)
     
     
 

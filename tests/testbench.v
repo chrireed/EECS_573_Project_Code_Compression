@@ -1,6 +1,8 @@
 `timescale 1 ns / 1 ps
 
 //`define WRITE_VCD
+`define DEBUG_CACHE
+
 module testbench;
     reg clk = 1;
     reg resetn = 0;
@@ -58,6 +60,7 @@ module testbench;
     // Cache stat signals
     `ifdef DEBUG_CACHE
         wire        dbg_miss;   // From cache
+        wire [31:0]  icache_occupancy;
 
         real dbg_imem_access_count = 0;
         real dbg_cache_miss_count = 0;
@@ -93,6 +96,7 @@ module testbench;
     ) icache (
         `ifdef DEBUG_CACHE
             .debug_miss    (dbg_miss),
+            .occupancy     (icache_occupancy),
         `endif
 
         .clk         (clk        ),
@@ -113,12 +117,13 @@ module testbench;
 `ifdef USE_XWA_ICACHE
     icache_Xwa #(
         .CACHE_SIZE(4*1024), // Size of cache in B
-        .NUM_WAYS  (4), // Cache associativity
-        .NUM_BLOCKS(4), // Number of blocks per cache line
+        .NUM_WAYS  (256), // Cache associativity
+        .NUM_BLOCKS(2), // Number of blocks per cache line
         .BLOCK_SIZE(4)  // Block size in B
     ) icache (
         `ifdef DEBUG_CACHE
             .debug_miss    (dbg_miss),
+            .occupancy     (icache_occupancy),
         `endif
 
         .clk         (clk        ),
@@ -233,6 +238,7 @@ module testbench;
                         dbg_imem_access_count);
                 $display("Miss rate: %f",
                         (dbg_cache_miss_count) / dbg_imem_access_count);
+                $display("Icache occupancy: %d", icache_occupancy);
             `endif
             $display("=================================");
             $display("============TRAP=================");

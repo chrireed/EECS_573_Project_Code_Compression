@@ -56,14 +56,14 @@
 ######################################################
 
 # this is a global clock period variable used in the tcl script and referenced in testbenches
-export CLOCK_PERIOD = 2.0
+export CLOCK_PERIOD = 20.0
 
 # the Verilog Compiler command and arguments
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
-# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_1WA_ICACHE \
+# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_1WA_ICACHE \
 # 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
-VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_XWA_ICACHE \
+VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_XWA_ICACHE \
 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vcs+dumpvars+test.vcd +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
@@ -233,6 +233,18 @@ FIRMWARE_DIR	= firmware/
 	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
 	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
 
+%.mem2w: %.elf
+	$(ELF2HEX) 8 32768 $< > $@
+	@$(call PRINT_COLOR, 6, created memory file $@)
+	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
+	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
+
+%.mem4w: %.elf
+	$(ELF2HEX) 16 32768 $< > $@
+	@$(call PRINT_COLOR, 6, created memory file $@)
+	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
+	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
+
 # compile all programs in one command (use 'make -j' to run multithreaded)
 compile_all: $(PROGRAMS:=.mem)
 .PHONY: compile_all
@@ -296,8 +308,8 @@ profiling:
 %.bitf: %.trace_dump profiling
 	python3 profilebitfields.py output/$< > profiling/$@
 
-%.cache: %.trace_dump profiling
-	python3 profilecachelines.py output/$*.trace_dump programs/$*.mem > profiling/$@
+%.cache: %.bitf profiling
+	python3 profilecachelines.py $* programs/$*.mem > profiling/$@
 
 ./programs/%.trace_dump: %.trace_dump;
 trace_dump_all: $(DUMP_PROGRAMS:=.trace_dump)
@@ -394,11 +406,35 @@ icache_4wa_simv: tests/icache_4wa_tb.v verilog/icache_Xwa.v verilog/imem.v
 %.icache_4wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_4wa_simv
 	./icache_4wa_simv -gui=verdi +MEMORY=$<
 
+icache_1wa_wide_simv: tests/icache_1wa_wide_tb.v verilog/icache_1wa_wide.v verilog/imem_wide.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_1wa_wide_tb.v verilog/icache_1wa_wide.v verilog/imem_wide.v -o $@
+
+%.icache_1wa_wide_simv.out: programs/%.mem4w icache_1wa_wide_simv output
+	./icache_1wa_wide_simv +MEMORY=$< > output/$@
+
+%.icache_1wa_wide_simv.verdi: programs/%.mem4w simv novas.rc verdi_dir icache_1wa_wide_simv
+	./icache_1wa_wide_simv -gui=verdi +MEMORY=$<
+
+icache_Xwa_wide_simv: tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v verilog/imem_wide.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v verilog/imem_wide.v -o $@
+
+%.icache_Xwa_wide_simv.out: programs/%.mem2w icache_Xwa_wide_simv output
+	./icache_Xwa_wide_simv +MEMORY=$< > output/$@
+
+%.icache_Xwa_wide_simv.verdi: programs/%.mem2w simv novas.rc verdi_dir icache_Xwa_wide_simv
+	./icache_Xwa_wide_simv -gui=verdi +MEMORY=$<
+
 controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
 
 controller_comp_simv: tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_comp_simv
+	
+dictionary_simv: tests/dictionary_test.v verilog/dictionary.v
+	$(VCS) tests/dictionary_test.v verilog/dictionary.v -o dictionary_simv
+
+dictionary_simv.verdi: dictionary_simv
+	./dictionary_simv -gui=verdi
 
 ###################
 # ---- Verdi ---- #
