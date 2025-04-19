@@ -1,11 +1,11 @@
-// SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE
+// SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE WITH BLOCK SIZE MEM READ PORT
 
 `define DEBUG_CACHE
 
-module icache_Xwa #(
-    parameter CACHE_SIZE = 4*1024, // Size of cache in B
-    parameter NUM_WAYS   = 256, // Number of ways
-    parameter NUM_BLOCKS = 2, // Number of blocks per cache line
+module icache_Xwa_wide #(
+    parameter CACHE_SIZE = 1*1024, // Size of cache in B
+    parameter NUM_WAYS   = 2, // Number of ways
+    parameter NUM_BLOCKS = 4, // Number of blocks per cache line
     parameter BLOCK_SIZE = 4  // Block size in B
 
 ) (
@@ -25,7 +25,7 @@ module icache_Xwa #(
     output reg         mem_req_valid,
     input              mem_req_ready,
     output reg [31:0]  mem_req_addr,
-    input      [31:0]  mem_req_rdata
+    input      [32*NUM_BLOCKS - 1:0]  mem_req_rdata
 
 );
     localparam NUM_LINES   = CACHE_SIZE / (NUM_BLOCKS * BLOCK_SIZE);
@@ -54,8 +54,6 @@ module icache_Xwa #(
 
     reg cache_miss;
     reg xfer;
-    reg [OFFSET_BITS-1:0] write_block;
-    reg [2**OFFSET_BITS-2:0] write_counter;
     reg [31:0] proc_req_addr;
 
 
@@ -89,7 +87,6 @@ module icache_Xwa #(
                     proc_ready      <= 0;
                     cache_miss      <= 1;
                     proc_req_addr   <= proc_addr;
-                    write_block     <= {OFFSET_BITS{1'b0}};
                     // Check for hit
                     for (way_idx = 0; way_idx < NUM_WAYS; way_idx = way_idx + 1) begin
                         if (~cache_miss && valid[index][way_idx] && (tags[index][way_idx] == tag)) begin
@@ -101,25 +98,18 @@ module icache_Xwa #(
                         end
                     end // end for way_idx
                 end else begin
-                    mem_req_addr  <= {proc_req_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
+                    mem_req_addr  <= {proc_req_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], {OFFSET_BITS{1'b0}}, {BYTE_OFFSET_BITS{1'b0}}};
                     if(~mem_req_ready) begin
                         // Initiate a read transaction with mem
                         mem_req_valid <= 1;
                     end else begin
                         // Mem has data on bus, read it in
-                        data[index][replace[index]][write_block*32 +: 32] <= mem_req_rdata;
-                        mem_req_valid     <= 0;
-
-                        // Check if we've recieved all blocks of data
-                        if(write_block === NUM_BLOCKS - 1) begin
-                            tags[index][replace[index]]  <= tag;
-                            valid[index][replace[index]] <= 1;
-                            replace[index]          <= replace[index] + 1;
-                            cache_miss              <= 0;
-                        end else begin
-                            write_block <= write_block + 1;
-                        end // end if write_block == NUM_BLOCKS - 1
-
+                        data[index][replace[index]]  <= mem_req_rdata;
+                        mem_req_valid                <= 0;
+                        tags[index][replace[index]]  <= tag;
+                        valid[index][replace[index]] <= 1;
+                        replace[index]               <= replace[index] + 1;
+                        cache_miss                   <= 0;
                     end // end if ~mem_req_ready
 
                 end // end if cache miss
@@ -128,6 +118,7 @@ module icache_Xwa #(
                 proc_ready <= 0;
                 mem_req_valid <= 0;
                 xfer <= 0;
+                cache_miss   <= 0;
             end // end if proc_valid
         end // ~end if resetn
     end // end always posedge clk

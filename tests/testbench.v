@@ -113,8 +113,8 @@ module testbench;
 `ifdef USE_XWA_ICACHE
     icache_Xwa #(
         .CACHE_SIZE(4*1024), // Size of cache in B
-        .NUM_WAYS  (4), // Cache associativity
-        .NUM_BLOCKS(4), // Number of blocks per cache line
+        .NUM_WAYS  (256), // Cache associativity
+        .NUM_BLOCKS(2), // Number of blocks per cache line
         .BLOCK_SIZE(4)  // Block size in B
     ) icache (
         `ifdef DEBUG_CACHE

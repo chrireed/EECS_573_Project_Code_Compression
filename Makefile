@@ -233,6 +233,18 @@ FIRMWARE_DIR	= firmware/
 	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
 	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
 
+%.mem2w: %.elf
+	$(ELF2HEX) 8 32768 $< > $@
+	@$(call PRINT_COLOR, 6, created memory file $@)
+	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
+	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
+
+%.mem4w: %.elf
+	$(ELF2HEX) 16 32768 $< > $@
+	@$(call PRINT_COLOR, 6, created memory file $@)
+	@$(call PRINT_COLOR, 3, NOTE: to see RISC-V assembly run: '"make $*.dump"')
+	@$(call PRINT_COLOR, 3, for \*.c sources also try: '"make $*.debug.dump"')
+
 # compile all programs in one command (use 'make -j' to run multithreaded)
 compile_all: $(PROGRAMS:=.mem)
 .PHONY: compile_all
@@ -393,6 +405,24 @@ icache_4wa_simv: tests/icache_4wa_tb.v verilog/icache_Xwa.v verilog/imem.v
 
 %.icache_4wa_simv.verdi: programs/%.mem simv novas.rc verdi_dir icache_4wa_simv
 	./icache_4wa_simv -gui=verdi +MEMORY=$<
+
+icache_1wa_wide_simv: tests/icache_1wa_wide_tb.v verilog/icache_1wa_wide.v verilog/imem_wide.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_1wa_wide_tb.v verilog/icache_1wa_wide.v verilog/imem_wide.v -o $@
+
+%.icache_1wa_wide_simv.out: programs/%.mem4w icache_1wa_wide_simv output
+	./icache_1wa_wide_simv +MEMORY=$< > output/$@
+
+%.icache_1wa_wide_simv.verdi: programs/%.mem4w simv novas.rc verdi_dir icache_1wa_wide_simv
+	./icache_1wa_wide_simv -gui=verdi +MEMORY=$<
+
+icache_Xwa_wide_simv: tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v verilog/imem_wide.v
+	$(VCS) +define+DEBUG_CACHE tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v verilog/imem_wide.v -o $@
+
+%.icache_Xwa_wide_simv.out: programs/%.mem2w icache_Xwa_wide_simv output
+	./icache_Xwa_wide_simv +MEMORY=$< > output/$@
+
+%.icache_Xwa_wide_simv.verdi: programs/%.mem2w simv novas.rc verdi_dir icache_Xwa_wide_simv
+	./icache_Xwa_wide_simv -gui=verdi +MEMORY=$<
 
 controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
