@@ -61,9 +61,9 @@ export CLOCK_PERIOD = 20.0
 # the Verilog Compiler command and arguments
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
-# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_1WA_ICACHE \
+# VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_1WA_ICACHE \
 # 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
-VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+DEBUG_CACHE +define+USE_XWA_ICACHE \
+VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_XWA_ICACHE \
 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vcs+dumpvars+test.vcd +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
@@ -427,6 +427,11 @@ icache_Xwa_wide_simv: tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v veril
 controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
 
+dictionary_simv: tests/dictionary_test.v verilog/dictionary.v
+	$(VCS) tests/dictionary_test.v verilog/dictionary.v -o dictionary_simv
+
+dictionary_simv.verdi: dictionary_simv
+	./dictionary_simv -gui=verdi
 
 ###################
 # ---- Verdi ---- #

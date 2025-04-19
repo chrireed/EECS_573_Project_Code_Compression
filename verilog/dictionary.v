@@ -6,32 +6,38 @@
 //val_lookup_in: Enter an uncompressed bitstring, returns existence in val_lookup_res.
 module dictionary #(
   parameter KEY_WIDTH  = 4,
-  parameter VAL_WIDTH  = 8)
-  (
+  parameter VAL_WIDTH  = 8
+  ) (
   //------------Input Ports--------------                        
   input  [KEY_WIDTH-1:0]   key_lookup_in, //Lookup this key (index bits / compressed bits)
   input  [VAL_WIDTH-1:0]   val_lookup_in, //lookup this value (uncompressed bits for field)
   //----------Output Ports--------------
   output reg [VAL_WIDTH-1:0]   val_out,  // found this value (uncompressed bits) for the compressed bits given.
   output reg [KEY_WIDTH-1:0]   key_out,  // found this value (compressed bits) for the uncompressed bits given.
-  output reg                   val_lookup_result  //is the uncompressed bits an entry in the table?
-  //------------Internal Variables--------
+  output reg                   val_lookup_result,  //is the uncompressed bits an entry in the table?
+  //------------Init Ports--------
+  input clk,
+  input write_enable,
+  input [VAL_WIDTH-1:0] write_val
   );
   // Stored CAM memory (KEY_WIDTH entries, each 8-bit wide)
   reg [VAL_WIDTH-1:0] memory [2**KEY_WIDTH - 1:0];
 
-  integer i;
+  reg [KEY_WIDTH-1:0] write_idx;
 
-  initial begin
-    val_lookup_result = 1'b0;
-    val_out <= {VAL_WIDTH{1'b0}};  // VAL_WIDTH-bit zero
-
-    //insert mem init stuff here
-    for (i = 0; i < 2**KEY_WIDTH; i = i + 1) begin
-      memory[i] = i + 1; // Each memory location is filled with its index value
-    end
+  // Make the dictionary writeable so we can init it at startup
+  always @(posedge clk) begin
+      if(write_enable) begin
+          memory[write_idx] <= write_val;
+          write_idx <= write_idx + 1;
+      end else begin 
+          write_idx <= 0;
+      end
   end
 
+  integer i;
+  
+  // Dictionary lookup logic
   always @* begin
       val_out = memory[key_lookup_in];
       val_lookup_result = 1'b0;  

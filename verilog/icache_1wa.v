@@ -10,6 +10,7 @@ module icache_1wa #(
 ) (
     `ifdef DEBUG_CACHE
         output                    debug_miss,
+        output reg [31:0]         occupancy,
     `endif
 
     input            clk,
@@ -67,6 +68,9 @@ module icache_1wa #(
             for (i = 0; i < NUM_LINES; i = i + 1) begin
                 valid[i] <= 0;
             end
+            `ifdef DEBUG_CACHE
+                occupancy <= 0;
+            `endif
         end 
         else begin
             if (proc_valid & ~xfer) begin
@@ -93,10 +97,15 @@ module icache_1wa #(
                         mem_req_valid     <= 0;
 
                         // Check if we've recieved all blocks of data
-                        if(write_block === NUM_BLOCKS - 1) begin
+                        if(write_block == NUM_BLOCKS - 1) begin
                             tags[index]  <= tag;
                             valid[index] <= 1;
                             cache_miss   <= 0;
+                            `ifdef DEBUG_CACHE
+                                if(~valid[index]) begin
+                                    occupancy <= occupancy + 1;
+                                end
+                            `endif
                         end else begin
                             write_block <= write_block + 1;
                         end // end if write_block == OFFSET_BITS - 1
@@ -106,9 +115,10 @@ module icache_1wa #(
                 end // end if cache miss
 
             end else begin 
-                proc_ready <= 0;
-                mem_req_valid <= 0;
-                xfer <= 0;
+                proc_ready      <= 0;
+                mem_req_valid   <= 0;
+                xfer            <= 0;
+                cache_miss      <= 0;
             end // end if proc_valid
         end // ~end if resetn
     end // end always posedge clk

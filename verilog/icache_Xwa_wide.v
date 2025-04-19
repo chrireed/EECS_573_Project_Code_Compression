@@ -1,6 +1,6 @@
-// SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE WITH BLOCK SIZE MEM READ PORT
+// SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE WITH RDATA WIDTH = BLOCK_SIZE * NUM_BLOCKS
 
-`define DEBUG_CACHE
+//`define DEBUG_CACHE
 
 module icache_Xwa_wide #(
     parameter CACHE_SIZE = 1*1024, // Size of cache in B
@@ -11,6 +11,7 @@ module icache_Xwa_wide #(
 ) (
     `ifdef DEBUG_CACHE
         output                    debug_miss,
+        output reg [31:0]         occupancy,
     `endif
 
     input            clk,
@@ -79,6 +80,9 @@ module icache_Xwa_wide #(
             for (k = 0; k < NUM_SETS; k = k + 1) begin
                 replace[k] <= 0;
             end
+            `ifdef DEBUG_CACHE
+                occupancy <= 0;
+            `endif
         end else begin
             // Make sure a transfer isn't already in progress
             if (proc_valid & ~xfer) begin
@@ -110,15 +114,20 @@ module icache_Xwa_wide #(
                         valid[index][replace[index]] <= 1;
                         replace[index]               <= replace[index] + 1;
                         cache_miss                   <= 0;
+                        `ifdef DEBUG_CACHE
+                                if(~valid[index][replace[index]]) begin
+                                    occupancy <= occupancy + 1;
+                                end
+                        `endif
                     end // end if ~mem_req_ready
 
                 end // end if cache miss
 
             end else begin 
-                proc_ready <= 0;
-                mem_req_valid <= 0;
-                xfer <= 0;
-                cache_miss   <= 0;
+                proc_ready      <= 0;
+                mem_req_valid   <= 0;
+                xfer            <= 0;
+                cache_miss      <= 0;
             end // end if proc_valid
         end // ~end if resetn
     end // end always posedge clk

@@ -10,6 +10,7 @@ module icache_1wa_wide #(
 ) (
     `ifdef DEBUG_CACHE
         output                    debug_miss,
+        output reg [31:0]         occupancy,
     `endif
 
     input            clk,
@@ -65,6 +66,9 @@ module icache_1wa_wide #(
             for (i = 0; i < NUM_LINES; i = i + 1) begin
                 valid[i] <= 0;
             end
+            `ifdef DEBUG_CACHE
+                occupancy <= 0;
+            `endif
         end 
         else begin
             if (proc_valid & ~xfer) begin
@@ -91,15 +95,20 @@ module icache_1wa_wide #(
                         tags[index]     <= tag;
                         valid[index]    <= 1;
                         cache_miss      <= 0;
+                         `ifdef DEBUG_CACHE
+                                if(~valid[index]) begin
+                                    occupancy <= occupancy + 1;
+                                end
+                            `endif
                     end // end if ~mem_req_ready
 
                 end // end if cache miss
 
             end else begin 
-                proc_ready <= 0;
-                mem_req_valid <= 0;
-                xfer <= 0;
-                cache_miss   <= 0;
+                proc_ready      <= 0;
+                mem_req_valid   <= 0;
+                xfer            <= 0;
+                cache_miss      <= 0;
             end // end if proc_valid
         end // ~end if resetn
     end // end always posedge clk
