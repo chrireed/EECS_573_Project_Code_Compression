@@ -25,9 +25,16 @@ module controller #(
     output wire         mem_req_valid,
     input              mem_req_ready,
     output wire [31:0]  mem_req_addr,
-    input      [31:0]  mem_req_rdata
+    input      [31:0]  mem_req_rdata,
 
+    input dict1_write_enable,
+    input [FIELD1_VAL_WIDTH-1:0] dict1_write_val,
 
+    input dict2_write_enable,
+    input [FIELD2_VAL_WIDTH-1:0] dict2_write_val,
+
+    input dict3_write_enable,
+    input [FIELD3_VAL_WIDTH-1:0] dict3_write_val
 );
 
     // Interface to regular icache 
@@ -68,6 +75,8 @@ module controller #(
     wire                            field3_val_lookup_result;
     wire    [FIELD3_VAL_WIDTH-1:0]       field3_val_out;
     wire    [FIELD3_KEY_WIDTH-1:0]   field3_key_out;
+
+
 
     // Instantiate Regular ICache
     icache_comp #(
@@ -114,7 +123,9 @@ module controller #(
         .val_lookup_in(field1_val_lookup),
         .val_out(field1_val_out),
         .key_out(field1_key_out),
-        .val_lookup_result(field1_val_lookup_result)
+        .val_lookup_result(field1_val_lookup_result),
+        .write_enable(dict1_write_enable),
+        .write_val(dict1_write_val)
     );
 
     // Instantiate Dictionary for Field2
@@ -126,7 +137,9 @@ module controller #(
         .val_lookup_in(field2_val_lookup),
         .val_out(field2_val_out),
         .key_out(field2_key_out),
-        .val_lookup_result(field2_val_lookup_result)
+        .val_lookup_result(field2_val_lookup_result),
+        .write_enable(dict2_write_enable),
+        .write_val(dict2_write_val)
     );
 
     // Instantiate Dictionary for Field3
@@ -138,7 +151,9 @@ module controller #(
         .val_lookup_in(field3_val_lookup),
         .val_out(field3_val_out),
         .key_out(field3_key_out),
-        .val_lookup_result(field3_val_lookup_result)
+        .val_lookup_result(field3_val_lookup_result),
+        .write_enable(dict3_write_enable),
+        .write_val(dict3_write_val)
     );
 
     reg   icache_hit_last_cycle;
@@ -151,7 +166,7 @@ module controller #(
     reg    [FIELD1_KEY_WIDTH-1:0] field1_key_found_latched;
     reg    [FIELD2_KEY_WIDTH-1:0] field2_key_found_latched;
     reg    [FIELD3_KEY_WIDTH-1:0] field3_key_found_latched;
-    
+
     wire    [31:0] decompressedInst;
     
     //connect caches to processor.
@@ -201,10 +216,7 @@ module controller #(
                 comp_mem_req_rdata <= {field3_key_found_latched, field2_key_found_latched, field1_key_found_latched};
         end
         
-        
-
-       
-
+    
         end
         endmodule
 
