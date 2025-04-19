@@ -397,6 +397,8 @@ icache_4wa_simv: tests/icache_4wa_tb.v verilog/icache_Xwa.v verilog/imem.v
 controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
 
+controller_comp_simv: tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
+	$(VCS) tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_comp_simv
 
 ###################
 # ---- Verdi ---- #
