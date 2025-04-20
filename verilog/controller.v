@@ -9,7 +9,7 @@ module controller #(
     parameter FIELD2_VAL_WIDTH = 15,
     parameter FIELD3_VAL_WIDTH = 10,
 
-      parameter CACHE_SIZE = 1024,
+      parameter CACHE_SIZE = 4*1024,
     parameter NUM_BLOCKS = 4,
     parameter BLOCK_SIZE = 4
 )(
@@ -79,7 +79,7 @@ module controller #(
 
 
     // Instantiate Regular ICache
-    icache_comp #(
+    icache_1wa #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(BLOCK_SIZE)
@@ -180,7 +180,7 @@ module controller #(
     assign proc_ready = icache_proc_ready | comp_proc_ready;
     assign decompressedInst = {field3_val_out[9:3],field2_val_out[14:5],field3_val_out[2:0],field2_val_out[4:0],field1_val_out[6:0]};
     assign proc_rdata = icache_proc_ready ? icache_proc_rdata : (comp_proc_ready ? 
-    decompressedInst : 32'b0);
+    32'b0 : 32'b0);
 
     assign field1_key_lookup = comp_proc_rdata[FIELD1_KEY_WIDTH -1 :0];
     assign field2_key_lookup = comp_proc_rdata[(FIELD2_KEY_WIDTH + FIELD1_KEY_WIDTH) -1 : FIELD1_KEY_WIDTH];

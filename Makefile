@@ -124,6 +124,7 @@ endif
 
 HEADERS = 
 
+TESTBENCH_CONT = tests/testbench_controller.v
 TESTBENCH_BASE = tests/testbench_base.v
 
 TESTBENCH = tests/testbench.v
@@ -133,7 +134,10 @@ MEM 	  = verilog/imem.v \
 
 SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa.v \
-			verilog/icache_Xwa.v
+			verilog/icache_Xwa.v \
+			verilog/icache_comp.v \
+			verilog/controller.v \
+			verilog/dictionary.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
@@ -147,6 +151,12 @@ simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 simv_base: $(TESTBENCH_BASE) $(SOURCES) $(DMEM) $(HEADERS)
+	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
+	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
+	$(VCS) $(filter-out $(HEADERS),$^) -o $@
+	@$(call PRINT_COLOR, 6, finished compiling $@)
+
+simv_cont: $(TESTBENCH_CONT) $(SOURCES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
@@ -348,6 +358,12 @@ $(OUTPUTS:=.base.out): output/%.base.out: programs/%.mem simv_base | output
 	./simv_base +MEMORY=$< +TRACE=$(@D)/$*.base.trace +MEMACCESS=$(@D)/$*.base.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running simv on $<)
 	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
+
+$(OUTPUTS:=.cont.out): output/%.cont.out: programs/%.mem simv_cont | output
+	@$(call PRINT_COLOR, 5, running simv on $<)
+	./simv_cont +MEMORY=$< +TRACE=$(@D)/$*.base.trace +MEMACCESS=$(@D)/$*.base.memacc > $@
+	@$(call PRINT_COLOR, 6, finished running simv on $<)
+	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
 # NOTE: this uses a 'static pattern rule' to match a list of known targets to a pattern
 # and then generates the correct rule based on the pattern, where % and $* match
 # so for the target 'output/sampler.out' the % matches 'sampler' and depends on programs/sampler.mem
@@ -453,6 +469,9 @@ novas.rc: initialnovas.rc
 %.verdi: programs/%.mem simv novas.rc verdi_dir
 	./simv -gui=verdi +MEMORY=$< +WRITEBACK=/dev/null +PIPELINE=/dev/null
 
+%.cont.verdi: programs/%.mem simv_cont novas.rc verdi_dir
+	./simv_cont -gui=verdi +MEMORY=$< +WRITEBACK=/dev/null +PIPELINE=/dev/null
+
 %.syn.verdi: programs/%.mem syn_simv novas.rc verdi_dir
 	./syn_simv -gui=verdi +MEMORY=$< +WRITEBACK=/dev/null +PIPELINE=/dev/null
 
@@ -471,7 +490,7 @@ clean_exe:
 	@$(call PRINT_COLOR, 3, removing compiled executable files)
 	rm -rf verdiLog
 	rm -rf *.daidir
-	rm -rf *simv simv_base csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
+	rm -rf *simv simv_base *simv_cont csrc *.key   # created by simv/syn_simv/vis_simv <-- linux is tweaking THE FILES ARE THERE WDYM THEYRE NOT BUT ARE AT THE SAME TIME
 	rm -rf vcdplus.vpd vc_hdrs.h       # created by simv/syn_simv/vis_simv <-- linux is tweaking
 	rm -rf verdi* novas* *fsdb*        # verdi files <-- linux is tweaking
 	rm -rf dve* inter.vpd DVEfiles     # old DVE debugger
