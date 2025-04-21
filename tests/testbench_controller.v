@@ -61,16 +61,13 @@ module testbench;
         dict2_write_enable = 1'b0;
         dict3_write_enable = 1'b0;
         #20
-        dict1_write_enable = 1'b1;
-        dict2_write_enable = 1'b1;
-        dict3_write_enable = 1'b1;
-        #20 
 
         repeat (200) begin  
             @(posedge clk);
                 resetn = 0;
                 
                 if (dict_index < 2**FIELD1_KEY_WIDTH) begin
+                    dict1_write_enable = 1'b1;
                     dict1_write_val = field1_file[dict_index];
                 end
                 else begin
@@ -78,6 +75,7 @@ module testbench;
                 end
 
                 if (dict_index < 2**FIELD2_KEY_WIDTH) begin
+                    dict2_write_enable = 1'b1;
                     dict2_write_val = field2_file[dict_index];
                 end
                 else begin
@@ -85,7 +83,8 @@ module testbench;
                 end
 
                 if (dict_index < 2**FIELD3_KEY_WIDTH) begin
-                dict3_write_val = field3_file[dict_index];
+                    dict3_write_enable = 1'b1;
+                    dict3_write_val = field3_file[dict_index];
                 end else begin
                     dict3_write_enable = 1'b0;
                 end
