@@ -57,9 +57,14 @@ module testbench;
 
         dict_index = 20'b0;
 
+        dict1_write_enable = 1'b0;
+        dict2_write_enable = 1'b0;
+        dict3_write_enable = 1'b0;
+        #20
         dict1_write_enable = 1'b1;
         dict2_write_enable = 1'b1;
         dict3_write_enable = 1'b1;
+        #20 
 
         repeat (200) begin  
             @(posedge clk);
