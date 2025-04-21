@@ -151,6 +151,7 @@ module controller #(
         .KEY_WIDTH(FIELD1_KEY_WIDTH),
         .VAL_WIDTH(FIELD1_VAL_WIDTH)
     ) dict1 (
+        .clk(clk),
         .key_lookup_in(field1_key_lookup),
         .val_lookup_in(field1_val_lookup),
         .val_out(field1_val_out),
@@ -166,6 +167,7 @@ module controller #(
         .KEY_WIDTH(FIELD2_KEY_WIDTH),
         .VAL_WIDTH(FIELD2_VAL_WIDTH)
     ) dict2 (
+        .clk(clk),
         .key_lookup_in(field2_key_lookup),
         .val_lookup_in(field2_val_lookup),
         .val_out(field2_val_out),
@@ -181,6 +183,7 @@ module controller #(
         .KEY_WIDTH(FIELD3_KEY_WIDTH),
         .VAL_WIDTH(FIELD3_VAL_WIDTH)
     ) dict3 (
+        .clk(clk),
         .key_lookup_in(field3_key_lookup),
         .val_lookup_in(field3_val_lookup),
         .val_out(field3_val_out),
@@ -231,7 +234,7 @@ module controller #(
         
 
         //both caches don't have the instruction...
-        if(proc_valid & icache_mem_req_valid & comp_mem_req_valid) begin
+        if(proc_valid & icache_mem_req_valid & comp_mem_req_valid & ~icache_mem_req_ready & ~comp_mem_req_ready) begin
             controller_cache_miss <= 1'b1;
             mem_req_addr  <= {proc_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
             if(~mem_req_ready) begin

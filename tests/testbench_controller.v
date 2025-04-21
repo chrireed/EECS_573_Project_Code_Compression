@@ -32,16 +32,20 @@ module testbench;
    reg [FIELD2_VAL_WIDTH-1:0] dict2_write_val ;
    reg [FIELD3_VAL_WIDTH-1:0] dict3_write_val ;
     integer i;
+    
+    
     initial begin     
+        for (i = 0; i < (2**FIELD1_KEY_WIDTH); i = i + 1) begin
+            field1_file[i] = {FIELD1_VAL_WIDTH{1'b0}};
+        end
 
-    for (i = 0; i < (2**FIELD1_KEY_WIDTH); i = i + 1)
-        field1_file[i] = {FIELD1_VAL_WIDTH{1'b0}};
+        for (i = 0; i < (2**FIELD2_KEY_WIDTH); i = i + 1) begin
+            field2_file[i] = {FIELD2_VAL_WIDTH{1'b0}};
+        end
 
-    for (i = 0; i < (2**FIELD2_KEY_WIDTH); i = i + 1)
-        field2_file[i] = {FIELD2_VAL_WIDTH{1'b0}};
-
-    for (i = 0; i < (2**FIELD3_KEY_WIDTH); i = i + 1)
-        field3_file[i] = {FIELD3_VAL_WIDTH{1'b0}};
+        for (i = 0; i < (2**FIELD3_KEY_WIDTH); i = i + 1) begin
+            field3_file[i] = {FIELD3_VAL_WIDTH{1'b0}};
+        end
 
         //load dictionaries
         $readmemb("profiling/field1_all.mem", field1_file);
@@ -59,7 +63,7 @@ module testbench;
 
         repeat (200) begin  
             @(posedge clk);
-                resetn <= 1;
+                resetn = 0;
                 
                 if (dict_index < 2**FIELD1_KEY_WIDTH) begin
                     dict1_write_val = field1_file[dict_index];
@@ -83,13 +87,13 @@ module testbench;
 
                 dict_index = dict_index + 1;
         end
-
+        resetn = 1;
         dict1_write_enable = 1'b0;
         dict2_write_enable = 1'b0;
         dict3_write_enable = 1'b0;
-        resetn <= 0;
-        end
        
+    end
+        
 
         
   
