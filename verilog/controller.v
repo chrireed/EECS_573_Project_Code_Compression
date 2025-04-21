@@ -1,18 +1,28 @@
 module controller #(
     //should add to 16 (currently)
     parameter FIELD1_KEY_WIDTH = 3,
-    parameter FIELD2_KEY_WIDTH = 8,
-    parameter FIELD3_KEY_WIDTH = 5,
+    parameter FIELD2_KEY_WIDTH = 5,
+    parameter FIELD3_KEY_WIDTH = 8,
 
     //should add to 32.
     parameter FIELD1_VAL_WIDTH = 7,
-    parameter FIELD2_VAL_WIDTH = 15,
-    parameter FIELD3_VAL_WIDTH = 10,
+    parameter FIELD2_VAL_WIDTH = 10,
+    parameter FIELD3_VAL_WIDTH = 15,
 
-      parameter CACHE_SIZE = 4*1024,
+    parameter CACHE_SIZE = 4*1024,
     parameter NUM_BLOCKS = 4,
     parameter BLOCK_SIZE = 4
+
+
 )(
+
+    `ifdef DEBUG_CACHE
+        output wire              debug_icache_miss,
+        output wire [31:0]         debug_icache_occupancy,
+        output wire                   debug_comp_cache_miss,
+        output wire [31:0]         debug_comp_occupancy,      
+    `endif
+
     input            clk,
     input            resetn,
 
@@ -25,9 +35,9 @@ module controller #(
 
     
     // Interface to memory
-    output wire         mem_req_valid,
+    output reg         mem_req_valid,
     input              mem_req_ready,
-    output wire [31:0]  mem_req_addr,
+    output reg [31:0]  mem_req_addr,
     input      [31:0]  mem_req_rdata,
 
     input dict1_write_enable,
@@ -57,9 +67,9 @@ module controller #(
     wire    [31:0]  icache_mem_req_addr;
     wire    [32*NUM_BLOCKS - 1:0]  icache_mem_req_rdata;
     wire icache_cache_miss;
-
+    reg [OFFSET_BITS-1:0] write_block;
     // Interface to compressed icache
-    wire comp_cache_miss;
+    reg comp_cache_miss;
     wire            comp_proc_valid;
     wire            comp_proc_ready;
     wire    [31:0]  comp_proc_addr;
@@ -67,7 +77,7 @@ module controller #(
     wire            comp_mem_req_valid;
     reg            comp_mem_req_ready;
     wire    [31:0]  comp_mem_req_addr;
-    reg    [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH)*NUM_BLOCKS - 1:0]  comp_mem_req_rdata;
+    wire    [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH)*NUM_BLOCKS - 1:0]  comp_mem_req_rdata;
 
     // Interface to Compression Tables
     wire    [FIELD1_KEY_WIDTH-1:0]   field1_key_lookup; 
@@ -96,6 +106,10 @@ module controller #(
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(BLOCK_SIZE)
     ) icache (
+        `ifdef DEBUG_CACHE
+            .debug_miss    (debug_icache_miss),
+            .occupancy     (debug_icache_occupancy),
+        `endif
         .clk(clk),
         .resetn(resetn),
         .proc_valid(icache_proc_valid),
@@ -112,8 +126,14 @@ module controller #(
     icache_1wa_wide #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
-        .BLOCK_SIZE(BLOCK_SIZE)
+        .BLOCK_SIZE(2)
     ) icache_comp (
+
+        `ifdef DEBUG_CACHE
+            .debug_miss    (debug_comp_cache_miss),
+            .occupancy     (debug_comp_occupancy),
+        `endif
+
         .clk(clk),
         .resetn(resetn),
         .proc_valid(comp_proc_valid),
@@ -137,7 +157,8 @@ module controller #(
         .key_out(field1_key_out),
         .val_lookup_result(field1_val_lookup_result),
         .write_enable(dict1_write_enable),
-        .write_val(dict1_write_val)
+        .write_val(dict1_write_val),
+        .resetn(resetn)
     );
 
     // Instantiate Dictionary for Field2
@@ -151,7 +172,8 @@ module controller #(
         .key_out(field2_key_out),
         .val_lookup_result(field2_val_lookup_result),
         .write_enable(dict2_write_enable),
-        .write_val(dict2_write_val)
+        .write_val(dict2_write_val),
+        .resetn(resetn)
     );
 
     // Instantiate Dictionary for Field3
@@ -173,8 +195,8 @@ module controller #(
 
     wire    [31:0] decompressedInst;
     
-    reg [31:0] icache_buffer [0:NUM_BLOCKS-1];
-    reg [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH) - 1 : 0] comp_cache_buffer [0:NUM_BLOCKS-1];
+    reg [32 * NUM_BLOCKS - 1:0] icache_buffer;
+    reg [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH) * NUM_BLOCKS - 1 : 0] comp_cache_buffer;
 
 
     //connect caches to processor.
@@ -186,8 +208,8 @@ module controller #(
     assign comp_proc_addr = proc_addr;
 
     assign proc_ready = icache_proc_ready | comp_proc_ready;
-    assign decompressedInst = {field3_val_out[9:3],field2_val_out[14:5],field3_val_out[2:0],field2_val_out[4:0],field1_val_out[6:0]};
-    assign proc_rdata = icache_proc_read ? icache_proc_rdata : comp_proc_ready ? decompressedInst : 32'b0;
+    assign decompressedInst = {field2_val_out[9:3],field3_val_out[14:5],field2_val_out[2:0],field3_val_out[4:0],field1_val_out[6:0]};
+    assign proc_rdata = icache_proc_ready ? icache_proc_rdata : comp_proc_ready ? decompressedInst : 32'b0;
 
     assign field1_key_lookup = comp_proc_rdata[FIELD1_KEY_WIDTH -1 :0];
     assign field2_key_lookup = comp_proc_rdata[(FIELD2_KEY_WIDTH + FIELD1_KEY_WIDTH) -1 : FIELD1_KEY_WIDTH];
@@ -199,54 +221,58 @@ module controller #(
     reg compressible;
 
     assign field1_val_lookup = mem_req_rdata[6:0];
-    assign field2_val_lookup = {mem_req_rdata[24:15],mem_req_rdata[11:7]};
-    assign field3_val_lookup = {mem_req_rdata[31:25],mem_req_rdata[14:12]};
+    assign field2_val_lookup = {mem_req_rdata[31:25],mem_req_rdata[14:12]};
+    assign field3_val_lookup = {mem_req_rdata[24:15],mem_req_rdata[11:7]};
 
     
     always @(posedge clk) begin
         comp_mem_req_ready <= 1'b0;
         icache_mem_req_ready <= 1'b0;
-        controller_cache_miss <= proc_valid & icache_mem_req_valid & comp_mem_req_valid;
+        
 
         //both caches don't have the instruction...
-        if(controller_cache_miss) begin
-            mem_req_addr  <= {proc_req_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
+        if(proc_valid & icache_mem_req_valid & comp_mem_req_valid) begin
+            controller_cache_miss <= 1'b1;
+            mem_req_addr  <= {proc_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
             if(~mem_req_ready) begin
                 // Initiate a read transaction with mem
                 mem_req_valid <= 1;
             end else begin
                 // Mem has data on bus, read it in
-                icache_buffer[write_block] <= mem_req_rdata;
+                icache_buffer[write_block*32 +: 32] <= mem_req_rdata;
                 //can all instructions so far be compressed?
                 compressible <= compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result;
                 if (compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result) begin
-                    comp_cache_buffer[write_block] <= {field3_key_found, field2_key_found, field1_key_found};
+                    comp_cache_buffer[write_block*32 +: 32] <= {field3_key_out, field2_key_out, field1_key_out};
                 end
 
                 mem_req_valid     <= 0;
-            end
+            
 
                 // Check if we've recieved all blocks of data
-            if(write_block == NUM_BLOCKS - 1) begin
+                if(write_block == NUM_BLOCKS - 1) begin
                     controller_cache_miss <= 0;
                     if (compressible) begin
-                        comp_mem_req_ready = 1'b1;
+                        comp_mem_req_ready <= 1'b1;
                     end
 
                     else begin
-                        icache_mem_req_ready = 1'b1;
+                        icache_mem_req_ready <= 1'b1;
                     end
-            end
-            else begin
-                write_block <= write_block + 1;
-            end // end if write_block == OFFSET_BITS - 1
+                end
+                else begin
+                    write_block <= write_block + 1;
+                end // end if write_block == OFFSET_BITS - 1
 
-        end 
-
-        end else begin 
-            comp_cache_miss      <= 0;
-            write_block <= 0;
+            end 
     end
+    else begin 
+            controller_cache_miss      <= 0;
+            write_block <= 0;
+            mem_req_valid <= 1'b0;
+    end
+    end
+  
     // end if cache miss
     endmodule
 

@@ -18,7 +18,8 @@ module dictionary #(
   //------------Init Ports--------
   input clk,
   input write_enable,
-  input [VAL_WIDTH-1:0] write_val
+  input [VAL_WIDTH-1:0] write_val,
+  input resetn
   );
   // Stored CAM memory (KEY_WIDTH entries, each 8-bit wide)
   reg [VAL_WIDTH-1:0] memory [2**KEY_WIDTH - 1:0];
@@ -33,6 +34,7 @@ module dictionary #(
       end else begin 
           write_idx <= 0;
       end
+      
   end
 
   integer i;

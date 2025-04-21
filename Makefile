@@ -137,7 +137,9 @@ SOURCES = 	verilog/picorv32.v \
 			verilog/icache_Xwa.v \
 			verilog/icache_comp.v \
 			verilog/controller.v \
-			verilog/dictionary.v
+			verilog/dictionary.v \
+			verilog/icache_1wa_wide.v \
+			verilog/icache_Xwa_wide.v 
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
@@ -159,7 +161,7 @@ simv_base: $(TESTBENCH_BASE) $(SOURCES) $(DMEM) $(HEADERS)
 simv_cont: $(TESTBENCH_CONT) $(SOURCES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
-	$(VCS) $(filter-out $(HEADERS),$^) -o $@
+	$(VCS) +define+DEBUG_CACHE $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
@@ -441,7 +443,7 @@ icache_Xwa_wide_simv: tests/icache_Xwa_wide_tb.v verilog/icache_Xwa_wide.v veril
 	./icache_Xwa_wide_simv -gui=verdi +MEMORY=$<
 
 controller_simv: tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
-	$(VCS) tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
+	$(VCS)  tests/controller_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_simv
 
 controller_comp_simv: tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v
 	$(VCS) tests/controller_comp_tb.v verilog/controller.v verilog/icache_1wa.v verilog/dictionary.v verilog/icache_comp.v -o controller_comp_simv

@@ -8,12 +8,92 @@ module testbench;
     reg resetn = 0;
     wire trap;
 
+    localparam FIELD1_VAL_WIDTH = 7;
+    localparam FIELD2_VAL_WIDTH = 10;
+    localparam FIELD3_VAL_WIDTH = 15;
+
+    localparam FIELD1_KEY_WIDTH = 3;
+    localparam FIELD2_KEY_WIDTH = 5;
+    localparam FIELD3_KEY_WIDTH = 8;
+
+
+    reg [20:0] dict_index;
     always #2 clk = ~clk;
 
-    initial begin
-        repeat (100) @(posedge clk);
-        resetn <= 1;
-    end
+    reg [FIELD1_VAL_WIDTH  - 1:0] field1_file [2**FIELD1_KEY_WIDTH-1 :0];
+    reg [FIELD2_VAL_WIDTH  - 1:0] field2_file [2**FIELD2_KEY_WIDTH-1 :0];
+    reg [FIELD3_VAL_WIDTH - 1:0]  field3_file  [2**FIELD3_KEY_WIDTH-1 :0];
+    
+    reg dict1_write_enable;
+    reg dict2_write_enable;
+    reg dict3_write_enable;
+
+   reg [FIELD1_VAL_WIDTH-1:0] dict1_write_val ;
+   reg [FIELD2_VAL_WIDTH-1:0] dict2_write_val ;
+   reg [FIELD3_VAL_WIDTH-1:0] dict3_write_val ;
+    integer i;
+    initial begin     
+
+    for (i = 0; i < (2**FIELD1_KEY_WIDTH); i = i + 1)
+        field1_file[i] = {FIELD1_VAL_WIDTH{1'b0}};
+
+    for (i = 0; i < (2**FIELD2_KEY_WIDTH); i = i + 1)
+        field2_file[i] = {FIELD2_VAL_WIDTH{1'b0}};
+
+    for (i = 0; i < (2**FIELD3_KEY_WIDTH); i = i + 1)
+        field3_file[i] = {FIELD3_VAL_WIDTH{1'b0}};
+
+        //load dictionaries
+        $readmemb("profiling/field1_all.mem", field1_file);
+        $display("Instruction 0: %b", field1_file[0]);
+        $readmemb("profiling/field2_all.mem", field2_file);
+        $display("Instruction 0: %b", field2_file[0]);
+        $readmemb("profiling/field3_all.mem", field3_file);
+        $display("Instruction 0: %b", field3_file[0]);
+
+        dict_index = 20'b0;
+
+        dict1_write_enable = 1'b1;
+        dict2_write_enable = 1'b1;
+        dict3_write_enable = 1'b1;
+
+        repeat (200) begin  
+            @(posedge clk);
+                resetn <= 1;
+                
+                if (dict_index < 2**FIELD1_KEY_WIDTH) begin
+                    dict1_write_val = field1_file[dict_index];
+                end
+                else begin
+                    dict1_write_enable = 1'b0;
+                end
+
+                if (dict_index < 2**FIELD2_KEY_WIDTH) begin
+                    dict2_write_val = field2_file[dict_index];
+                end
+                else begin
+                    dict2_write_enable = 1'b0;
+                end
+
+                if (dict_index < 2**FIELD3_KEY_WIDTH) begin
+                dict3_write_val = field3_file[dict_index];
+                end else begin
+                    dict3_write_enable = 1'b0;
+                end
+
+                dict_index = dict_index + 1;
+        end
+
+        dict1_write_enable = 1'b0;
+        dict2_write_enable = 1'b0;
+        dict3_write_enable = 1'b0;
+        resetn <= 0;
+        end
+       
+
+        
+  
+
 
     // Memory wires
     wire        proc_mem_valid;
@@ -54,16 +134,21 @@ module testbench;
     reg [239:0] program_memory_file;
     reg [239:0] program_trace_file;
     reg [239:0] memory_access_file;
+
     integer     trace_fd;
     integer     mem_access_fd;
     
     // Cache stat signals
     `ifdef DEBUG_CACHE
-        wire        dbg_miss;   // From cache
-        wire [31:0]  icache_occupancy;
+        wire        dbg_icache_miss;   // From cache
+        wire [31:0]  dbg_icache_occupancy;
+
+        wire        dbg_comp_cache_miss;   // From cache
+        wire [31:0]  dbg_comp_cache_occupancy;
 
         real dbg_imem_access_count = 0;
-        real dbg_cache_miss_count = 0;
+        real dbg_icache_miss_count = 0;
+        real dbg_comp_cache_miss_count = 0;
     `endif
 
     picorv32 #(
@@ -85,6 +170,13 @@ module testbench;
 
     controller #(
     ) cache_controller (
+
+    `ifdef DEBUG_CACHE
+        .debug_icache_miss(dbg_icache_miss),
+        .debug_icache_occupancy(dbg_icache_occupancy),
+        .debug_comp_cache_miss(dbg_comp_cache_miss),
+        .debug_comp_occupancy(dbg_comp_cache_occupancy),      
+    `endif
         .clk(clk),
         .resetn(resetn),
         
@@ -161,8 +253,7 @@ module testbench;
         $readmemh(program_memory_file, instr_mem.memory);
         $readmemh(program_memory_file, data_mem.memory);
         $display("Finished loading RAM contents ending at: 0x%h", MEM_SIZE - 1);
-
-        
+ 
         // Open trace file
         if ($value$plusargs("TRACE=%s", program_trace_file)) begin
             $display("Using trace output file: %s", program_trace_file);
@@ -208,12 +299,22 @@ module testbench;
                 // Print cache stats
                 $display("\nIcache Statistics:");
                 $display("Hits: %d, Misses: %d, Imem Accesses: %d",
-                        dbg_imem_access_count - dbg_cache_miss_count,
-                        dbg_cache_miss_count,
+                        dbg_imem_access_count - dbg_icache_miss_count,
+                        dbg_icache_miss_count,
                         dbg_imem_access_count);
                 $display("Miss rate: %f",
-                        (dbg_cache_miss_count) / dbg_imem_access_count);
-                $display("Icache occupancy: %d", icache_occupancy);
+                        (dbg_icache_miss_count) / dbg_imem_access_count);
+                $display("Icache occupancy: %d", dbg_icache_occupancy);
+
+
+                $display("\nComp cache Statistics:");
+                $display("Hits: %d, Misses: %d, Imem Accesses: %d",
+                        dbg_imem_access_count - dbg_comp_cache_miss_count,
+                        dbg_comp_cache_miss_count,
+                        dbg_imem_access_count);
+                $display("Miss rate: %f",
+                        (dbg_comp_cache_miss_count) / dbg_imem_access_count);
+                $display("Icache occupancy: %d", dbg_comp_cache_occupancy);
             `endif
             $display("=================================");
             $display("============TRAP=================");
@@ -258,8 +359,12 @@ module testbench;
 
     // Cache stats
     `ifdef DEBUG_CACHE
-        always @(posedge dbg_miss) begin
-            dbg_cache_miss_count <= dbg_cache_miss_count + 1;
+        always @(posedge dbg_icache_miss) begin
+            dbg_icache_miss_count <= dbg_icache_miss_count + 1;
+        end
+
+        always @(posedge dbg_comp_cache_miss) begin
+            dbg_comp_cache_miss_count <= dbg_comp_cache_miss_count + 1;
         end
     `endif
 
