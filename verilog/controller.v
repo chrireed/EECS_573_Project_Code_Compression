@@ -21,6 +21,9 @@ module controller #(
     input        [31:0] proc_addr,
     output wire   [31:0] proc_rdata,
 
+
+
+    
     // Interface to memory
     output wire         mem_req_valid,
     input              mem_req_ready,
@@ -37,17 +40,26 @@ module controller #(
     input [FIELD3_VAL_WIDTH-1:0] dict3_write_val
 );
 
+    localparam NUM_LINES   = CACHE_SIZE / (NUM_BLOCKS * BLOCK_SIZE);
+    localparam INDEX_BITS  = $clog2(NUM_LINES);
+    localparam OFFSET_BITS = $clog2(NUM_BLOCKS);
+    localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    localparam TAG_BITS    = 32 - INDEX_BITS - OFFSET_BITS - BYTE_OFFSET_BITS;
+
+
     // Interface to regular icache 
     wire            icache_proc_valid;
     wire            icache_proc_ready;
     wire    [31:0]  icache_proc_addr;
     wire    [31:0]  icache_proc_rdata;
     wire            icache_mem_req_valid;
-    wire            icache_mem_req_ready;
+    reg            icache_mem_req_ready;
     wire    [31:0]  icache_mem_req_addr;
-    wire    [31:0]  icache_mem_req_rdata;
+    wire    [32*NUM_BLOCKS - 1:0]  icache_mem_req_rdata;
+    wire icache_cache_miss;
 
     // Interface to compressed icache
+    wire comp_cache_miss;
     wire            comp_proc_valid;
     wire            comp_proc_ready;
     wire    [31:0]  comp_proc_addr;
@@ -55,7 +67,7 @@ module controller #(
     wire            comp_mem_req_valid;
     reg            comp_mem_req_ready;
     wire    [31:0]  comp_mem_req_addr;
-    reg    [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH) - 1:0]  comp_mem_req_rdata;
+    reg    [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH)*NUM_BLOCKS - 1:0]  comp_mem_req_rdata;
 
     // Interface to Compression Tables
     wire    [FIELD1_KEY_WIDTH-1:0]   field1_key_lookup; 
@@ -79,7 +91,7 @@ module controller #(
 
 
     // Instantiate Regular ICache
-    icache_1wa #(
+    icache_1wa_wide #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(BLOCK_SIZE)
@@ -97,11 +109,11 @@ module controller #(
     );
 
     // Instantiate Compressed ICache
-    icache_comp #(
+    icache_1wa_wide #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(BLOCK_SIZE)
-    ) comp_cache (
+    ) icache_comp (
         .clk(clk),
         .resetn(resetn),
         .proc_valid(comp_proc_valid),
@@ -156,68 +168,86 @@ module controller #(
         .write_val(dict3_write_val)
     );
 
+    reg   controller_cache_miss;
     reg   icache_hit_last_cycle;
-    reg   [32:0] icache_proc_addr_latched;
-
-    reg     field1_val_lookup_result_latched;
-    reg     field2_val_lookup_result_latched;
-    reg     field3_val_lookup_result_latched;
-
-    reg    [FIELD1_KEY_WIDTH-1:0] field1_key_found_latched;
-    reg    [FIELD2_KEY_WIDTH-1:0] field2_key_found_latched;
-    reg    [FIELD3_KEY_WIDTH-1:0] field3_key_found_latched;
 
     wire    [31:0] decompressedInst;
     
+    reg [31:0] icache_buffer [0:NUM_BLOCKS-1];
+    reg [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH) - 1 : 0] comp_cache_buffer [0:NUM_BLOCKS-1];
+
+
     //connect caches to processor.
     assign icache_proc_valid = proc_valid;
     assign icache_proc_addr = proc_addr;
     
     //compressed valid needs to be held another cycle so we can process the actual instruction and "return it from memory"
-    assign comp_proc_valid = proc_valid | icache_hit_last_cycle;
-    assign comp_proc_addr = proc_valid ? proc_addr : icache_hit_last_cycle ? icache_proc_addr_latched : 32'b0;
+    assign comp_proc_valid = proc_valid ;
+    assign comp_proc_addr = proc_addr;
 
     assign proc_ready = icache_proc_ready | comp_proc_ready;
     assign decompressedInst = {field3_val_out[9:3],field2_val_out[14:5],field3_val_out[2:0],field2_val_out[4:0],field1_val_out[6:0]};
-    assign proc_rdata = icache_proc_ready ? icache_proc_rdata : (comp_proc_ready ? 
-    32'b0 : 32'b0);
+    assign proc_rdata = icache_proc_read ? icache_proc_rdata : comp_proc_ready ? decompressedInst : 32'b0;
 
     assign field1_key_lookup = comp_proc_rdata[FIELD1_KEY_WIDTH -1 :0];
     assign field2_key_lookup = comp_proc_rdata[(FIELD2_KEY_WIDTH + FIELD1_KEY_WIDTH) -1 : FIELD1_KEY_WIDTH];
     assign field3_key_lookup = comp_proc_rdata[15 : FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH];
+
+    assign icache_mem_req_rdata = icache_buffer; 
+    assign comp_mem_req_rdata = comp_cache_buffer;
+
+    reg compressible;
+
+    assign field1_val_lookup = mem_req_rdata[6:0];
+    assign field2_val_lookup = {mem_req_rdata[24:15],mem_req_rdata[11:7]};
+    assign field3_val_lookup = {mem_req_rdata[31:25],mem_req_rdata[14:12]};
+
     
-    //only actual icache should be interfacing with memory....
-    assign icache_mem_req_ready = mem_req_ready;
-    assign icache_mem_req_rdata = mem_req_rdata;
-    assign mem_req_valid = icache_mem_req_valid;
-    assign mem_req_addr = icache_mem_req_addr;
-
-    assign field1_val_lookup = icache_proc_rdata[6:0];
-    assign field2_val_lookup = {icache_proc_rdata[24:15],icache_proc_rdata[11:7]};
-    assign field3_val_lookup = {icache_proc_rdata[31:25],icache_proc_rdata[14:12]};
-
     always @(posedge clk) begin
-
-        icache_hit_last_cycle <= icache_proc_ready;
-        icache_proc_addr_latched <= icache_proc_addr;
-
         comp_mem_req_ready <= 1'b0;
-        field1_val_lookup_result_latched <= field1_val_lookup_result;
-        field2_val_lookup_result_latched <= field2_val_lookup_result;
-        field3_val_lookup_result_latched <= field3_val_lookup_result;
+        icache_mem_req_ready <= 1'b0;
+        controller_cache_miss <= proc_valid & icache_mem_req_valid & comp_mem_req_valid;
 
-        field1_key_found_latched <= field1_key_out;
-        field2_key_found_latched <= field2_key_out;
-        field3_key_found_latched <= field3_key_out;
+        //both caches don't have the instruction...
+        if(controller_cache_miss) begin
+            mem_req_addr  <= {proc_req_addr[31:OFFSET_BITS + BYTE_OFFSET_BITS], write_block, {BYTE_OFFSET_BITS{1'b0}}};
+            if(~mem_req_ready) begin
+                // Initiate a read transaction with mem
+                mem_req_valid <= 1;
+            end else begin
+                // Mem has data on bus, read it in
+                icache_buffer[write_block] <= mem_req_rdata;
+                //can all instructions so far be compressed?
+                compressible <= compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result;
+                if (compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result) begin
+                    comp_cache_buffer[write_block] <= {field3_key_found, field2_key_found, field1_key_found};
+                end
 
-        //if inst *can* be compressed and the compressed cache doesn't have it already, return it to the compressed cache.
-        if (icache_hit_last_cycle && ~comp_proc_ready && field1_val_lookup_result_latched && field2_val_lookup_result_latched && field3_val_lookup_result_latched) begin
-                comp_mem_req_ready <= 1'b1;
-                comp_mem_req_rdata <= {field3_key_found_latched, field2_key_found_latched, field1_key_found_latched};
-        end
-        
-    
-        end
-        endmodule
+                mem_req_valid     <= 0;
+            end
+
+                // Check if we've recieved all blocks of data
+            if(write_block == NUM_BLOCKS - 1) begin
+                    controller_cache_miss <= 0;
+                    if (compressible) begin
+                        comp_mem_req_ready = 1'b1;
+                    end
+
+                    else begin
+                        icache_mem_req_ready = 1'b1;
+                    end
+            end
+            else begin
+                write_block <= write_block + 1;
+            end // end if write_block == OFFSET_BITS - 1
+
+        end 
+
+        end else begin 
+            comp_cache_miss      <= 0;
+            write_block <= 0;
+    end
+    // end if cache miss
+    endmodule
 
 
