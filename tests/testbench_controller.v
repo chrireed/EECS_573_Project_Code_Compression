@@ -157,6 +157,13 @@ module testbench;
         real dbg_imem_access_count = 0;
         real dbg_icache_miss_count = 0;
         real dbg_comp_cache_miss_count = 0;
+
+        wire                debug_compressible;
+        wire                debug_compressible_instr;
+        wire                debug_field1_val_lookup_result;
+        wire                debug_field2_val_lookup_result;
+        wire                debug_field3_val_lookup_result;
+        wire [31:0]         debug_decompressed_instr;
     `endif
 
     picorv32 #(
@@ -183,7 +190,13 @@ module testbench;
         .debug_icache_miss(dbg_icache_miss),
         .debug_icache_occupancy(dbg_icache_occupancy),
         .debug_comp_cache_miss(dbg_comp_cache_miss),
-        .debug_comp_occupancy(dbg_comp_cache_occupancy),      
+        .debug_comp_occupancy(dbg_comp_cache_occupancy),
+        .debug_compressible(debug_compressible),
+        .debug_compressible_instr(debug_compressible_instr),
+        .debug_field1_val_lookup_result(debug_field1_val_lookup_result),
+        .debug_field2_val_lookup_result(debug_field2_val_lookup_result),
+        .debug_field3_val_lookup_result(debug_field3_val_lookup_result), 
+        .debug_decompressed_instr(debug_decompressed_instr),
     `endif
         .clk(clk),
         .resetn(resetn),
@@ -284,6 +297,21 @@ module testbench;
         $display("=================================");
         $display("============BEGIN================");
         $display("=================================");
+        `ifdef DEBUG_CACHE
+        $display("Time   reset   imem_addr        imem_rdata                            decompressed_instr       compressible compressible_instr field1_result field2_result field3_result");
+        $monitor("%-8t   %b      %-8h     %b                       %b                       %b           %b                 %b            %b            %b",
+                 $time,
+                 resetn,
+                 imem_addr,
+                 imem_rdata,
+                 debug_decompressed_instr,
+                 debug_compressible,
+                 debug_compressible_instr,
+                 debug_field1_val_lookup_result,
+                 debug_field2_val_lookup_result,
+                 debug_field3_val_lookup_result);
+        `endif
+
 	end
 
     // Write to the trace file

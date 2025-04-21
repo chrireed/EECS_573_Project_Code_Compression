@@ -17,10 +17,17 @@ module controller #(
 )(
 
     `ifdef DEBUG_CACHE
-        output wire              debug_icache_miss,
+        output wire                debug_icache_miss,
         output wire [31:0]         debug_icache_occupancy,
-        output wire                   debug_comp_cache_miss,
-        output wire [31:0]         debug_comp_occupancy,      
+        output wire                debug_comp_cache_miss,
+        output wire [31:0]         debug_comp_occupancy,
+        output wire                debug_compressible,
+        output wire                debug_compressible_instr,
+        output wire                debug_field1_val_lookup_result,
+        output wire                debug_field2_val_lookup_result,
+        output wire                debug_field3_val_lookup_result,
+        output wire                debug_decompressed_instr,
+
     `endif
 
     input            clk,
@@ -190,7 +197,8 @@ module controller #(
         .key_out(field3_key_out),
         .val_lookup_result(field3_val_lookup_result),
         .write_enable(dict3_write_enable),
-        .write_val(dict3_write_val)
+        .write_val(dict3_write_val),
+        .resetn(resetn)
     );
 
     reg   controller_cache_miss;
@@ -200,6 +208,7 @@ module controller #(
     
     reg [32 * NUM_BLOCKS - 1:0] icache_buffer;
     reg [(FIELD1_KEY_WIDTH + FIELD2_KEY_WIDTH + FIELD3_KEY_WIDTH) * NUM_BLOCKS - 1 : 0] comp_cache_buffer;
+
 
 
     //connect caches to processor.
@@ -222,16 +231,29 @@ module controller #(
     assign comp_mem_req_rdata = comp_cache_buffer;
 
     reg compressible;
+    wire compressible_instr;
+
+    assign compressible_instr = field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result;
 
     assign field1_val_lookup = mem_req_rdata[6:0];
     assign field2_val_lookup = {mem_req_rdata[31:25],mem_req_rdata[14:12]};
     assign field3_val_lookup = {mem_req_rdata[24:15],mem_req_rdata[11:7]};
 
-    
+    `ifdef DEBUG_CACHE
+        assign                debug_compressible                = compressible;
+        assign                debug_compressible_instr          = compressible_instr;
+        assign                debug_field1_val_lookup_result    = field1_val_lookup_result;
+        assign                debug_field2_val_lookup_result    = field2_val_lookup_result;
+        assign                debug_field3_val_lookup_result    = field3_val_lookup_result;
+        assign                debug_decompressed_instr          = decompressedInst;
+    `endif
+
     always @(posedge clk) begin
         comp_mem_req_ready <= 1'b0;
         icache_mem_req_ready <= 1'b0;
-        
+
+        //assume compressible instruction
+        compressible  <= compressible_instr;
 
         //both caches don't have the instruction...
         if(proc_valid & icache_mem_req_valid & comp_mem_req_valid & ~icache_mem_req_ready & ~comp_mem_req_ready) begin
@@ -244,7 +266,7 @@ module controller #(
                 // Mem has data on bus, read it in
                 icache_buffer[write_block*32 +: 32] <= mem_req_rdata;
                 //can all instructions so far be compressed?
-                compressible <= compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result;
+                compressible <= compressible & compressible_instr;
                 if (compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result) begin
                     comp_cache_buffer[write_block*32 +: 32] <= {field3_key_out, field2_key_out, field1_key_out};
                 end
@@ -255,7 +277,7 @@ module controller #(
                 // Check if we've recieved all blocks of data
                 if(write_block == NUM_BLOCKS - 1) begin
                     controller_cache_miss <= 0;
-                    if (compressible) begin
+                    if (compressible & compressible_instr) begin
                         comp_mem_req_ready <= 1'b1;
                     end
 
@@ -270,9 +292,9 @@ module controller #(
             end 
     end
     else begin 
-            controller_cache_miss      <= 0;
-            write_block <= 0;
-            mem_req_valid <= 1'b0;
+            controller_cache_miss   <= 0;
+            write_block             <= 0;
+            mem_req_valid           <= 0;
     end
     end
   
