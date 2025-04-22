@@ -9,7 +9,7 @@ module controller #(
     parameter FIELD2_VAL_WIDTH = 10,
     parameter FIELD3_VAL_WIDTH = 15,
 
-    parameter CACHE_SIZE = 4*1024,
+    parameter CACHE_SIZE = 1*1024,
     parameter NUM_BLOCKS = 4,
     parameter BLOCK_SIZE = 4
 
@@ -154,7 +154,7 @@ module controller #(
     );
 
     // Instantiate Dictionary for Field1
-    dictionary #(
+    dictionary_field1 #(
         .KEY_WIDTH(FIELD1_KEY_WIDTH),
         .VAL_WIDTH(FIELD1_VAL_WIDTH)
     ) dict1 (
@@ -170,7 +170,7 @@ module controller #(
     );
 
     // Instantiate Dictionary for Field2
-    dictionary #(
+    dictionary_field2 #(
         .KEY_WIDTH(FIELD2_KEY_WIDTH),
         .VAL_WIDTH(FIELD2_VAL_WIDTH)
     ) dict2 (
@@ -186,7 +186,7 @@ module controller #(
     );
 
     // Instantiate Dictionary for Field3
-    dictionary #(
+    dictionary_field3 #(
         .KEY_WIDTH(FIELD3_KEY_WIDTH),
         .VAL_WIDTH(FIELD3_VAL_WIDTH)
     ) dict3 (

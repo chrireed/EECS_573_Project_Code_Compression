@@ -136,7 +136,9 @@ SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa.v \
 			verilog/icache_Xwa.v \
 			verilog/controller.v \
-			verilog/dictionary.v \
+			verilog/dictionary_field1.v \
+			verilog/dictionary_field2.v \
+			verilog/dictionary_field3.v \
 			verilog/icache_1wa_wide.v \
 			verilog/icache_Xwa_wide.v \
 			verilog/icache_1wa_wide_comp.v \
@@ -144,7 +146,13 @@ SOURCES = 	verilog/picorv32.v \
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
-				synth/icache_Xwa.vg
+				synth/icache_Xwa.vg \
+				synth/controller.vg \
+				synth/dictionary_field1.vg \
+				synth/dictionary_field2.vg \
+				synth/dictionary_field3.vg \
+				synth/icache_1wa_wide_comp.vg \
+				synth/icache_1wa_wide.vg 
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)
@@ -177,6 +185,12 @@ synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
 # the synthesis executable runs your testbench on the synthesized versions of your modules
 syn_simv: $(TESTBENCH) $(SYNTH_FILES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the synthesis executable $@)
+	$(VCS) +define+SYNTH $(filter-out $(HEADERS),$^) $(LIB) -o $@
+	@$(call PRINT_COLOR, 6, finished compiling $@)
+
+cont_syn_simv: $(TESTBENCH_CONT) $(SYNTH_FILES) $(MEM) $(HEADERS)
+	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
+	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) +define+SYNTH $(filter-out $(HEADERS),$^) $(LIB) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
@@ -382,6 +396,12 @@ $(OUTPUTS:=.syn.out): output/%.syn.out: programs/%.mem syn_simv | output
 	@$(call PRINT_COLOR, 6, finished running syn_simv on $<)
 	@$(call PRINT_COLOR, 2, output is in $@ $(@D)/$*.syn.memaccess, and $(@D)/$*.syn.trace)
 
+$(OUTPUTS:=.cont.syn.out): output/%.cont.syn.out: programs/%.mem cont_syn_simv | output
+	@$(call PRINT_COLOR, 5, running syn_simv on $<)
+	@$(call PRINT_COLOR, 3, this might take a while...)
+	./cont_syn_simv +MEMORY=$< +TRACE=$(@D)/$*.cont.syn.trace +MEMACCESS=$(@D)/$*.cont.syn.memacc > $@
+	@$(call PRINT_COLOR, 6, finished running syn_simv on $<)
+	@$(call PRINT_COLOR, 2, output is in $@ $(@D)/$*.syn.memaccess, and $(@D)/$*.cont..syn.trace)
 # Allow us to type 'make <my_program>.out' instead of 'make output/<my_program>.out'
 ./%.out: output/%.out ;
 .PHONY: ./%.out

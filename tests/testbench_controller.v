@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 //`define WRITE_VCD
-`define DEBUG_CACHE
+//`define DEBUG_CACHE
 //`define PRINT_DEBUG
 
 module testbench;
