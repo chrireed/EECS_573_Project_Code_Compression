@@ -35,7 +35,8 @@ module icache_Xwa_wide #(
     localparam INDEX_BITS  = $clog2(NUM_SETS);
     localparam WAY_BITS    = $clog2(NUM_WAYS);
     localparam OFFSET_BITS = $clog2(NUM_BLOCKS);
-    localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    //localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    localparam BYTE_OFFSET_BITS = 2;
     localparam TAG_BITS    = 32 - INDEX_BITS - OFFSET_BITS - BYTE_OFFSET_BITS;
 
     

@@ -1,6 +1,6 @@
 // SIMPLE CACHE FOR 1 < WAYS < FULL ASSOCIATIVE
 
-`define DEBUG_CACHE
+//`define DEBUG_CACHE
 
 module icache_Xwa #(
     parameter CACHE_SIZE = 1*1024, // Size of cache in B
@@ -35,7 +35,8 @@ module icache_Xwa #(
     localparam INDEX_BITS  = $clog2(NUM_SETS);
     localparam WAY_BITS    = $clog2(NUM_WAYS);
     localparam OFFSET_BITS = $clog2(NUM_BLOCKS);
-    localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    //localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    localparam BYTE_OFFSET_BITS = 2;
     localparam TAG_BITS    = 32 - INDEX_BITS - OFFSET_BITS - BYTE_OFFSET_BITS;
 
     
