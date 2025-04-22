@@ -3,7 +3,7 @@
 # Assign arguments to variables
 pass_keyword="PASSED"
 fail_keyword="FAILED"
-output_pattern="output/*.out"
+output_pattern="output/*.cont.out"
 
 files=($output_pattern)
 
