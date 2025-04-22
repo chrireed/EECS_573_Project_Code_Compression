@@ -241,7 +241,7 @@ def main():
         field2 = get_funct7_funct3(instr)
         field3 = get_register(instr)
         line +=1
-        print("NM: " + num_matches + " M?: " + match + " Instr: " + instr + " Opcode " + field1 + " f73: " + field2 + " reg: " + field3)
+        # print("NM: " + num_matches + " M?: " + match + " Instr: " + instr + " Opcode " + field1 + " f73: " + field2 + " reg: " + field3)
 
     # Analyze various cache configurations
 
