@@ -18,7 +18,11 @@ module imem_wide #(
         // Handle a memory access
         if (mem_valid && !mem_ready) begin
             mem_ready <= 1;
-            mem_rdata <= memory[mem_addr >> (2 + OFFSET_BIT_SHIFT)];
+            if(NUM_BLOCKS == 1) begin
+                mem_rdata <= memory[mem_addr >> (2)];
+            end else begin
+                mem_rdata <= memory[mem_addr >> (2 + OFFSET_BIT_SHIFT)];
+            end
         end
     end
 endmodule

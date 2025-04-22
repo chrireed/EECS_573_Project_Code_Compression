@@ -19,13 +19,13 @@ module icache_1wa #(
     input               proc_valid,
     output reg          proc_ready,
     input        [31:0] proc_addr,
-    output reg   [31:0] proc_rdata,
+    output reg   [8*BLOCK_SIZE - 1:0] proc_rdata,
 
     // Interface to memory
     output reg         mem_req_valid,
     input              mem_req_ready,
     output reg [31:0]  mem_req_addr,
-    input      [31:0]  mem_req_rdata
+    input      [8*BLOCK_SIZE - 1:0]  mem_req_rdata
 
 );
     localparam NUM_LINES   = CACHE_SIZE / (NUM_BLOCKS * BLOCK_SIZE);
@@ -77,7 +77,7 @@ module icache_1wa #(
                 if (~cache_miss && valid[index] && (tags[index] == tag)) begin
                     // Cache hit and read
                     proc_ready <= 1;
-                    proc_rdata <= data[index][block_offset*32 +: 32]; // Cool way to select bit rage [LSB +: WIDTH UPWARDS]
+                    proc_rdata <= data[index][block_offset*(8*BLOCK_SIZE) +: (8*BLOCK_SIZE)]; // Cool way to select bit rage [LSB +: WIDTH UPWARDS]
                     xfer <= 1;
                 end else if(~cache_miss) begin
                     // Cache miss

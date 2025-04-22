@@ -26,7 +26,7 @@ module controller #(
         output wire                debug_field1_val_lookup_result,
         output wire                debug_field2_val_lookup_result,
         output wire                debug_field3_val_lookup_result,
-        output wire                debug_decompressed_instr,
+        output wire [31:0]         debug_decompressed_instr,
 
     `endif
 
