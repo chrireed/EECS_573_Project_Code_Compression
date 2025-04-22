@@ -2,6 +2,7 @@
 
 //`define WRITE_VCD
 `define DEBUG_CACHE
+//`define PRINT_DEBUG
 
 module testbench;
     reg clk = 1;
@@ -298,6 +299,7 @@ module testbench;
         $display("============BEGIN================");
         $display("=================================");
         `ifdef DEBUG_CACHE
+            `ifdef PRINT_DEBUG
         $display("Time   reset   imem_addr        imem_rdata                            decompressed_instr       compressible compressible_instr field1_result field2_result field3_result");
         $monitor("%-8t   %b      %-8h     %b                       %b                       %b           %b                 %b            %b            %b",
                  $time,
@@ -310,6 +312,7 @@ module testbench;
                  debug_field1_val_lookup_result,
                  debug_field2_val_lookup_result,
                  debug_field3_val_lookup_result);
+            `endif
         `endif
 
 	end

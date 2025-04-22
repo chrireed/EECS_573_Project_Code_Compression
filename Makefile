@@ -363,7 +363,7 @@ $(OUTPUTS:=.base.out): output/%.base.out: programs/%.mem simv_base | output
 
 $(OUTPUTS:=.cont.out): output/%.cont.out: programs/%.mem %.bitf simv_cont | output
 	@$(call PRINT_COLOR, 5, running simv on $<)
-	./simv_cont +MEMORY=$< +TRACE=$(@D)/$*.base.trace +MEMACCESS=$(@D)/$*.base.memacc > $@
+	./simv_cont +MEMORY=$< +TRACE=$(@D)/$*.cont.trace +MEMACCESS=$(@D)/$*.cont.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running simv on $<)
 	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
 # NOTE: this uses a 'static pattern rule' to match a list of known targets to a pattern

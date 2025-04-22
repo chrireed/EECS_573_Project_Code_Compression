@@ -31,7 +31,8 @@ module icache_1wa_wide #(
     localparam NUM_LINES   = CACHE_SIZE / (NUM_BLOCKS * BLOCK_SIZE);
     localparam INDEX_BITS  = $clog2(NUM_LINES);
     localparam OFFSET_BITS = $clog2(NUM_BLOCKS);
-    localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    //localparam BYTE_OFFSET_BITS = $clog2(BLOCK_SIZE);
+    localparam BYTE_OFFSET_BITS = 2;
     localparam TAG_BITS    = 32 - INDEX_BITS - OFFSET_BITS - BYTE_OFFSET_BITS;
 
     
