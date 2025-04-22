@@ -284,22 +284,14 @@ module testbench;
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
             else 
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
-<<<<<<< HEAD
-                // Count imem accesses
-                `ifdef DEBUG_CACHE
-                    if(proc_mem_instr)
-                        dbg_mem_req_count <= dbg_mem_req_count + 1;
-                `endif
                 end
-=======
             `endif
 
             `ifdef DEBUG_CACHE
             if (~(|proc_mem_wstrb))
                 if(proc_mem_instr)
-                    dbg_imem_access_count <= dbg_imem_access_count + 1;
+                    dbg_mem_req_count <= dbg_mem_req_count + 1;
             `endif
->>>>>>> e873d87458747e4e415020a42fc67a7ce618b072
 
             if (^proc_mem_addr === 1'bx ||
                     (proc_mem_wstrb[0] && ^proc_mem_wdata[ 7: 0] == 1'bx) ||
