@@ -128,29 +128,30 @@ def print_results(results):
               f"{cycles}  "
               f"{imem_accesses}")
     
-    # Averages
-    print("-" * len(header))
-    if results:
-        def safe_avg(values):
-            vals = [v for v in values if v != 'N/A']
-            return sum(vals) / len(vals) if vals else 'N/A'
+    # # Averages
+    # print("-" * len(header))
+    # if results:
+    #     def safe_avg(values):
+    #         vals = [v for v in values if v != 'N/A']
+    #         return sum(vals) / len(vals) if vals else 'N/A'
         
-        avg_reg_miss = safe_avg(d.get('Reg Miss Rate', 'N/A') for d in results.values())
-        avg_reg_occ = safe_avg(d.get('Reg Occupancy', 'N/A') for d in results.values())
-        avg_comp_miss = safe_avg(d.get('Comp Miss Rate', 'N/A') for d in results.values())
-        avg_comp_occ = safe_avg(d.get('Comp Occupancy', 'N/A') for d in results.values())
-        avg_comb_miss = safe_avg(d.get('Combined Miss Rate', 'N/A') for d in results.values())
-        avg_cycles = safe_avg(d.get('Cycles', 'N/A') for d in results.values())
-        avg_imem = safe_avg(d.get('Imem Accesses', 'N/A') for d in results.values())
+    #     avg_reg_miss = safe_avg(d.get('Reg Miss Rate', 'N/A') for d in results.values())
+    #     avg_reg_occ = safe_avg(d.get('Reg Occupancy', 'N/A') for d in results.values())
+    #     avg_comp_miss = safe_avg(d.get('Comp Miss Rate', 'N/A') for d in results.values())
+    #     avg_comp_occ = safe_avg(d.get('Comp Occupancy', 'N/A') for d in results.values())
+    #     avg_comb_miss = safe_avg(d.get('Combined Miss Rate', 'N/A') for d in results.values())
+    #     avg_cycles = safe_avg(d.get('Cycles', 'N/A') for d in results.values())
+    #     avg_imem = safe_avg(d.get('Imem Accesses', 'N/A') for d in results.values())
         
-        print(f"{'Average':<{max_program_len}}  "
-              f"{avg_reg_miss if isinstance(avg_reg_miss, str) else avg_reg_miss:<10.3f}  "
-              f"{avg_reg_occ if isinstance(avg_reg_occ, str) else avg_reg_occ:<8.1f}  "
-              f"{avg_comp_miss if isinstance(avg_comp_miss, str) else avg_comp_miss:<10.3f}  "
-              f"{avg_comp_occ if isinstance(avg_comp_occ, str) else avg_comp_occ:<8.1f}  "
-              f"{avg_comb_miss if isinstance(avg_comb_miss, str) else avg_comb_miss:<10.3f}  "
-              f"{avg_cycles if isinstance(avg_cycles, str) else avg_cycles:<12.1f}  "
-              f"{avg_imem if isinstance(avg_imem, str) else avg_imem:<10.1f}")
+    #     print(f"{'Average':<{max_program_len}}  "
+    #           f"{avg_reg_miss if isinstance(avg_reg_miss, str) else avg_reg_miss:<10.3f}  "
+    #           f"{avg_reg_occ if isinstance(avg_reg_occ, str) else avg_reg_occ:<8.1f}  "
+    #           f"{avg_comp_miss if isinstance(avg_comp_miss, str) else avg_comp_miss:<10.3f}  "
+    #           f"{avg_comp_occ if isinstance(avg_comp_occ, str) else avg_comp_occ:<8.1f}  "
+    #           f"{avg_comb_miss if isinstance(avg_comb_miss, str) else avg_comb_miss:<10.3f}  "
+    #           f"{avg_cycles if isinstance(avg_cycles, str) else avg_cycles:<12.1f}  "
+    #           f"{avg_imem if isinstance(avg_imem, str) else avg_imem:<10.1f}")
+
 
 def main():
     results = parse_output_files()

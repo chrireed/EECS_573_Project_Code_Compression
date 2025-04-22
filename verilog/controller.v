@@ -1,7 +1,8 @@
 //`define USE_1WA_ICACHE
 `define USE_XWA_ICACHE
 //`define USE_1WA_COMP_ICACHE
-`define USE_XWA_COMP_ICACHE
+//`define USE_XWA_COMP_ICACHE
+`define USE_FAWA_COMP_ICACHE
 
 //`define R_TYPE
 `define I_TYPE
@@ -29,10 +30,12 @@ module controller #(
     parameter FIELD3_VAL_WIDTH = 13,
     `endif
 
-    parameter CACHE_SIZE = 2*1024,
-    parameter CACHE_SIZE_COMP = 1*1024,
-    parameter NUM_WAYS = 2,
-    parameter NUM_WAYS_COMP = 2,
+    parameter CACHE_SIZE = 4*1024,
+    parameter CACHE_SIZE_COMP = 512,
+    parameter NUM_WAYS = 4,
+    `ifndef USE_FAWA_COMP_ICACHE
+    parameter NUM_WAYS_COMP = 4,
+    `endif
     parameter NUM_BLOCKS = 4,
     parameter BLOCK_SIZE = 4,
     parameter BLOCK_SIZE_COMP = 2
@@ -209,6 +212,31 @@ module controller #(
     icache_Xwa_wide_comp #(
         .CACHE_SIZE(CACHE_SIZE_COMP),
         .NUM_WAYS(NUM_WAYS_COMP),
+        .NUM_BLOCKS(NUM_BLOCKS),
+        .BLOCK_SIZE(BLOCK_SIZE_COMP)
+    ) icache_comp (
+
+        `ifdef DEBUG_CACHE
+            .debug_miss    (debug_comp_cache_miss),
+            .occupancy     (debug_comp_occupancy),
+        `endif
+
+        .clk(clk),
+        .resetn(resetn),
+        .proc_valid(comp_proc_valid),
+        .proc_ready(comp_proc_ready),
+        .proc_addr(comp_proc_addr),
+        .proc_rdata(comp_proc_rdata),
+        .mem_req_valid(comp_mem_req_valid),
+        .mem_req_ready(comp_mem_req_ready),
+        .mem_req_addr(comp_mem_req_addr),
+        .mem_req_rdata(comp_mem_req_rdata)
+    );
+    `endif
+
+    `ifdef USE_FAWA_COMP_ICACHE
+    icache_FAwa_wide_comp #(
+        .CACHE_SIZE(CACHE_SIZE_COMP),
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(BLOCK_SIZE_COMP)
     ) icache_comp (

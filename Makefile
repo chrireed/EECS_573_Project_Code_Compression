@@ -142,7 +142,8 @@ SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa_wide.v \
 			verilog/icache_Xwa_wide.v \
 			verilog/icache_1wa_wide_comp.v \
-			verilog/icache_Xwa_wide_comp.v
+			verilog/icache_Xwa_wide_comp.v \
+			verilog/icache_FAwa_wide_comp.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
@@ -154,7 +155,8 @@ SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa_wide.vg \
 				synth/icache_Xwa_wide.vg \
 				synth/icache_1wa_wide_comp.vg \
-				synth/icache_Xwa_wide_comp.vg
+				synth/icache_Xwa_wide_comp.vg \
+				synth/icache_FAwa_wide_comp.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)

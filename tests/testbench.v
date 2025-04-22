@@ -14,7 +14,7 @@ module testbench;
     wire trap;
 
     localparam CACHE_SIZE = 4*1024;
-    localparam NUM_WAYS = 2;
+    localparam NUM_WAYS = 4;
     localparam NUM_BLOCKS = 4;
     localparam BLOCK_SIZE = 4;
 

@@ -3,8 +3,8 @@
 //`define DEBUG_CACHE
 
 module icache_Xwa_wide_comp #(
-    parameter CACHE_SIZE = 1*1024, // Size of cache in B
-    parameter NUM_WAYS   = 2, // Number of ways
+    parameter CACHE_SIZE = 512, // Size of cache in B
+    parameter NUM_WAYS   = 32, // Number of ways
     parameter NUM_BLOCKS = 4, // Number of blocks per cache line
     parameter BLOCK_SIZE = 2  // Block size in B
 
