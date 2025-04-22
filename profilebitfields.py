@@ -683,6 +683,9 @@ def profile_NAIVE_R_TYPE(instructions, instructions_all={}, write_out=False, fil
     print("[FIELD 1] + [FIELD 2] + [FIELD 3]: ", field1_bits + field2_bits + field3_bits)
     print("===================================================")
 
+    field1_bits = 3
+    field2_bits = 5
+    field3_bits = 8
     # Get the max # compressible fields (from all instructions) to fill up luts
     field1_write = get_opcodes(instructions_all, 2**field1_bits)
     #field1_write = sort_entries(field1_write)
