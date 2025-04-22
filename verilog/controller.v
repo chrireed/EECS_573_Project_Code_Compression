@@ -253,7 +253,7 @@ module controller #(
         icache_mem_req_ready <= 1'b0;
 
         //assume compressible instruction
-        compressible  <= compressible_instr;
+        
 
         //both caches don't have the instruction...
         if(proc_valid & icache_mem_req_valid & comp_mem_req_valid & ~icache_mem_req_ready & ~comp_mem_req_ready) begin
@@ -268,7 +268,7 @@ module controller #(
                 //can all instructions so far be compressed?
                 compressible <= compressible & compressible_instr;
                 if (compressible & field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result) begin
-                    comp_cache_buffer[write_block*32 +: 32] <= {field3_key_out, field2_key_out, field1_key_out};
+                    comp_cache_buffer[write_block*16 +: 16] <= {field3_key_out, field2_key_out, field1_key_out};
                 end
 
                 mem_req_valid     <= 0;
@@ -292,10 +292,10 @@ module controller #(
             end 
     end
     else begin 
+            compressible            <= 1'b1;
             controller_cache_miss      <= 0;
             write_block <= 0;
             mem_req_valid <= 1'b0;
-            compressible <= 1'b1;
     end
     end
   
