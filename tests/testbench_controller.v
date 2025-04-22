@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 //`define WRITE_VCD
-//`define DEBUG_CACHE
+`define DEBUG_CACHE
 //`define PRINT_DEBUG
 //`define WRITE_MEMACC
 //`define WRITE_TRACE
@@ -187,12 +187,12 @@ module testbench;
 
         wire dbg_both_miss;
 
-        real dbg_mem_req_count         = 0;
-        real dbg_imem_access_count     = 0;
-        real dbg_icache_miss_count     = 0;
-        real dbg_combined_miss_count   = 0;
-        real dbg_comp_cache_miss_count = 0;
-        real dbg_imem_req_count        = 0;
+        real dbg_mem_req_count          = 0;
+        real dbg_proc_imem_access_count = 0;
+        real dbg_icache_miss_count      = 0;
+        real dbg_combined_miss_count    = 0;
+        real dbg_comp_cache_miss_count  = 0;
+        real dbg_cache_imem_req_count   = 0;
 
         wire                debug_compressible;
         wire                debug_compressible_instr;
@@ -375,40 +375,37 @@ module testbench;
             repeat (10) @(posedge clk);
             `ifdef DEBUG_CACHE
                 // Print cache stats
-                $display("Imem Accesses: %d",
-                        dbg_imem_access_count);
+                $display("\nProcessor Cache Accesses: %d\n",
+                        dbg_proc_imem_access_count);
 
-                $display("\nIcache Statistics:");
-                $display("Hits: %d, Misses: %d, Total Mem Requests: %d",
-                        dbg_mem_req_count - dbg_icache_miss_count,
-                        dbg_icache_miss_count,
-                        dbg_mem_req_count);
-
-
-                $display("Miss rate: %f",
-                        (dbg_icache_miss_count) / dbg_mem_req_count);
-                $display("Icache occupancy: %d", dbg_icache_occupancy);
-
-
-                $display("\nComp cache Statistics:");
-                $display("Hits: %d, Misses: %d, Total Mem Requests: %d",
-                        dbg_mem_req_count - dbg_comp_cache_miss_count,
-                        dbg_comp_cache_miss_count,
-                        dbg_mem_req_count);
+                $display("Icache Statistics:");
                 $display("Hits: %d, Misses: %d",
-                        dbg_imem_access_count - dbg_comp_cache_miss_count,
-                        dbg_comp_cache_miss_count);
-                $display("Miss rate: %f",
-                        (dbg_comp_cache_miss_count) / dbg_mem_req_count);
-                $display("Icache occupancy: %d", dbg_comp_cache_occupancy);
+                        dbg_proc_imem_access_count - dbg_icache_miss_count,
+                        dbg_icache_miss_count);
+                $display("Icache Miss rate: %f",
+                        (dbg_icache_miss_count) / dbg_proc_imem_access_count);
+                $display("Icache occupancy: %d\n", dbg_icache_occupancy);
 
-                $display("Imem Accesses: %f\n", dbg_imem_req_count);
+
+                $display("\nCompressed Icache Statistics:");
+                $display("Hits: %d, Misses: %d",
+                        dbg_proc_imem_access_count - dbg_comp_cache_miss_count,
+                        dbg_comp_cache_miss_count);
+                $display("Hits: %d, Misses: %d",
+                        dbg_proc_imem_access_count - dbg_comp_cache_miss_count,
+                        dbg_comp_cache_miss_count);
+                $display("Compressed Icache Miss rate: %f",
+                        (dbg_comp_cache_miss_count) / dbg_proc_imem_access_count);
+                $display("Compressed Icache Occupancy: %d\n", dbg_comp_cache_occupancy);
+
                 $display("\nCombined cache Statistics:");
                 $display("Hits: %d, Misses: %d",
-                        dbg_imem_access_count - dbg_combined_miss_count,
+                        dbg_proc_imem_access_count - dbg_combined_miss_count,
                         dbg_combined_miss_count);
-                $display("Miss rate: %f",
-                        (dbg_combined_miss_count) / dbg_imem_access_count);
+                $display("Miss rate: %f\n",
+                        (dbg_combined_miss_count) / dbg_proc_imem_access_count);
+
+                $display("Imem Accesses: %d\n", dbg_cache_imem_req_count);
             `endif
             $display("=================================");
             $display("============TRAP=================");
@@ -432,20 +429,14 @@ module testbench;
             `ifdef WRITE_MEMACC
             if (|proc_mem_wstrb)
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
-            else begin
+            else
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
-                            // Count imem accesses
-                `ifdef DEBUG_CACHE
-                    if(proc_mem_instr)
-                        dbg_mem_req_count <= dbg_mem_req_count + 1;
-                `endif
-            end
             `endif
 
             `ifdef DEBUG_CACHE
             if (~(|proc_mem_wstrb))
                 if(proc_mem_instr)
-                    dbg_imem_access_count <= dbg_imem_access_count + 1;
+                    dbg_proc_imem_access_count <= dbg_proc_imem_access_count + 1;
             `endif
 
             if (^proc_mem_addr === 1'bx ||
@@ -472,7 +463,7 @@ module testbench;
         end
 
         always @(posedge dbg_imem_valid) begin
-            dbg_imem_req_count <= dbg_imem_req_count + 1;
+            dbg_cache_imem_req_count <= dbg_cache_imem_req_count + 1;
         end
         
         always @(posedge dbg_both_miss) begin

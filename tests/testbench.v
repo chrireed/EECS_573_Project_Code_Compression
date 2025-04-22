@@ -13,7 +13,7 @@ module testbench;
     reg resetn = 0;
     wire trap;
 
-    localparam CACHE_SIZE = 1*1024;
+    localparam CACHE_SIZE = 4*1024;
     localparam NUM_WAYS = 2;
     localparam NUM_BLOCKS = 4;
     localparam BLOCK_SIZE = 4;
@@ -72,10 +72,9 @@ module testbench;
         wire        dbg_miss;   // From cache
         wire [31:0]  icache_occupancy;
         wire         dbg_imem_valid;
-        real dbg_mem_req_count = 0;
-        real dbg_cache_miss_count = 0;
-        real dbg_imem_req_count = 0;
-
+        real dbg_proc_imem_access_count = 0;
+        real dbg_cache_miss_count       = 0;
+        real dbg_cache_imem_req_count   = 0;
     `endif
 
     picorv32 #(
@@ -249,16 +248,18 @@ module testbench;
             repeat (10) @(posedge clk);
             `ifdef DEBUG_CACHE
                 // Print cache stats
-                $display("\nIcache Statistics:");
-                $display("Hits: %d, Misses: %d, Proc Mem Requests: %d",
-                        dbg_mem_req_count - dbg_cache_miss_count,
-                        dbg_cache_miss_count,
-                        dbg_mem_req_count);
-                $display("Miss rate: %f",
-                        (dbg_cache_miss_count) / dbg_mem_req_count);
-                $display("Icache occupancy: %d", icache_occupancy);
+                $display("\nProcessor Cache Accesses: %d\n",
+                        dbg_proc_imem_access_count);
 
-                $display("\Imem Accesses: %f", dbg_imem_req_count);
+                $display("Icache Statistics:");
+                $display("Hits: %d, Misses: %d",
+                        dbg_proc_imem_access_count - dbg_cache_miss_count,
+                        dbg_cache_miss_count);
+                $display("Icache Miss rate: %f",
+                        (dbg_cache_miss_count) / dbg_proc_imem_access_count);
+                $display("Icache occupancy: %d\n", icache_occupancy);
+
+                $display("Imem Accesses: %d", dbg_cache_imem_req_count);
             `endif
             $display("=================================");
             $display("============TRAP=================");
@@ -284,13 +285,12 @@ module testbench;
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
             else 
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
-                end
             `endif
 
             `ifdef DEBUG_CACHE
             if (~(|proc_mem_wstrb))
                 if(proc_mem_instr)
-                    dbg_mem_req_count <= dbg_mem_req_count + 1;
+                    dbg_proc_imem_access_count <= dbg_proc_imem_access_count + 1;
             `endif
 
             if (^proc_mem_addr === 1'bx ||
@@ -311,7 +311,7 @@ module testbench;
         end
 
         always @(posedge dbg_imem_valid) begin
-            dbg_imem_req_count <= dbg_imem_req_count + 1;
+            dbg_cache_imem_req_count <= dbg_cache_imem_req_count + 1;
         end
     `endif
 
