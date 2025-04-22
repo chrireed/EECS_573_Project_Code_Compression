@@ -41,6 +41,38 @@ def parse_mem_NAIVE_R_TYPE(filename, max_pc):
 
     return mem, last_line
 
+def parse_mem_NAIVE_I_TYPE(filename, max_pc):
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    mem = {}
+    mem["instr"] = []
+    mem["field1"] = []
+    mem["field2"] = []
+    mem["field3"] = []
+    last_line = int(max_pc/4)
+    i = 0
+    for line in lines:
+        instr = bin(int(line, 16))[2:].zfill(32)
+        mem["instr"].append(instr)
+        mem["field1"].append(get_opcode(instr))
+        mem["field2"].append(parse_imm_I_type(instr))
+        mem["field3"].append(parse_rs1_funct3_rd(instr))
+        if i == last_line:
+            break
+        i += 1
+    
+    last_line += 1
+    print("############################################")
+    print("Parsed mem file")
+    print("# instrs:")
+    print(len(mem["instr"]))
+    print("last line:")
+    print(last_line)
+    print("############################################")
+
+    return mem, last_line
+
 # [cache_size] in bytes
 # [cache_ways] number of ways
 # [cache_blocks] number of instructions per cache line
@@ -171,7 +203,8 @@ def main():
     trace_dump_file = "output/" + program_name + ".trace_dump"
     instructions_all, num_instructions, max_pc = parse_assembly_file(trace_dump_file)
 
-    profiling_type = "NAIVE_R_TYPE_"
+    #profiling_type = "R_"
+    profiling_type = "I_"
     field1_mem_filepath = "profiling/field1_" + profiling_type + program_name + ".mem"
     field2_mem_filepath = "profiling/field2_" + profiling_type + program_name + ".mem"
     field3_mem_filepath = "profiling/field3_" + profiling_type + program_name + ".mem"
@@ -200,7 +233,7 @@ def main():
     print(field3)
 
     # Parse mem file
-    mem_parsed, last_line = parse_mem_NAIVE_R_TYPE(mem_file, max_pc)
+    mem_parsed, last_line = parse_mem_NAIVE_I_TYPE(mem_file, max_pc)
 
     # Count how any bitfield matches each instruction has
     num_fields = 3
@@ -304,10 +337,13 @@ def main():
 
     analyze_num_occurences(instructions_128, mem_parsed, compressible, 2)
     analyze_num_occurences(instructions_128, mem_parsed, compressible, 4)
+    analyze_num_occurences(instructions_128, mem_parsed, compressible, 8)
     analyze_num_occurences(instructions_256, mem_parsed, compressible, 2)
     analyze_num_occurences(instructions_256, mem_parsed, compressible, 4)
+    analyze_num_occurences(instructions_256, mem_parsed, compressible, 8)
     analyze_num_occurences(instructions_512, mem_parsed, compressible, 2)
     analyze_num_occurences(instructions_512, mem_parsed, compressible, 4)
+    analyze_num_occurences(instructions_512, mem_parsed, compressible, 8)
     
     
 
