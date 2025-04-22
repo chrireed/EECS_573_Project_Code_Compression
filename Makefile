@@ -63,7 +63,7 @@ export CLOCK_PERIOD = 20.0
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_1WA_ICACHE \
 # 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
-VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca +define+USE_XWA_ICACHE \
+VCS = SW_VCS=2020.12-SP2-1 vcs +vc -Mupdate -line -full64 -kdb -lca \
 	-debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
 # VCS = SW_VCS=2020.12-SP2-1 vcs +vcs+dumpvars+test.vcd +vc -Mupdate -line -full64 -kdb -lca \
 #       -debug_access+all+reverse $(VCS_BAD_WARNINGS) +define+CLOCK_PERIOD=$(CLOCK_PERIOD)
@@ -134,15 +134,19 @@ MEM 	  = verilog/imem.v \
 
 SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa.v \
-			verilog/icache_Xwa.v \
-			verilog/controller.v \
-			verilog/dictionary_field1.v \
-			verilog/dictionary_field2.v \
-			verilog/dictionary_field3.v \
-			verilog/icache_1wa_wide.v \
-			verilog/icache_Xwa_wide.v \
-			verilog/icache_1wa_wide_comp.v \
-			verilog/icache_Xwa_wide_comp.v
+			verilog/icache_Xwa.v 
+
+SOURCES_CONT = 	verilog/picorv32.v \
+				verilog/icache_1wa.v \
+				verilog/icache_Xwa.v \
+				verilog/controller.v \
+				verilog/dictionary_field1.v \
+				verilog/dictionary_field2.v \
+				verilog/dictionary_field3.v \
+				verilog/icache_1wa_wide.v \
+				verilog/icache_Xwa_wide.v \
+				verilog/icache_1wa_wide_comp.v \
+				verilog/icache_Xwa_wide_comp.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
@@ -167,14 +171,14 @@ simv_base: $(TESTBENCH_BASE) $(SOURCES) $(DMEM) $(HEADERS)
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
-simv_cont: $(TESTBENCH_CONT) $(SOURCES) $(MEM) $(HEADERS)
+simv_cont: $(TESTBENCH_CONT) $(SOURCES_CONT) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) +define+DEBUG_CACHE $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
-synth/%.vg: $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
+synth/%.vg: $(SOURCES) $(SOURCES_CONT) $(TCL_SCRIPT) $(HEADERS)
 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
 	@$(call PRINT_COLOR, 3, this might take a while...)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
