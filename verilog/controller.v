@@ -273,6 +273,7 @@ module controller #(
             controller_cache_miss      <= 0;
             write_block <= 0;
             mem_req_valid <= 1'b0;
+            compressible <= 1'b1;
     end
     end
   
