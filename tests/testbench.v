@@ -61,9 +61,11 @@ module testbench;
     `ifdef DEBUG_CACHE
         wire        dbg_miss;   // From cache
         wire [31:0]  icache_occupancy;
-
-        real dbg_imem_access_count = 0;
+        wire         dbg_imem_valid;
+        real dbg_mem_req_count = 0;
         real dbg_cache_miss_count = 0;
+        real dbg_imem_req_count = 0;
+
     `endif
 
     picorv32 #(
@@ -149,6 +151,11 @@ module testbench;
 
     imem #(
     ) instr_mem (
+
+        `ifdef DEBUG_CACHE
+            .dbg_mem_valid(dbg_imem_valid),
+        `endif
+        
         .clk         (clk        ),
         .mem_valid   (imem_valid  ),
         .mem_ready   (imem_ready  ),
@@ -232,13 +239,15 @@ module testbench;
             `ifdef DEBUG_CACHE
                 // Print cache stats
                 $display("\nIcache Statistics:");
-                $display("Hits: %d, Misses: %d, Imem Accesses: %d",
-                        dbg_imem_access_count - dbg_cache_miss_count,
+                $display("Hits: %d, Misses: %d, Proc Mem Requests: %d",
+                        dbg_mem_req_count - dbg_cache_miss_count,
                         dbg_cache_miss_count,
-                        dbg_imem_access_count);
+                        dbg_mem_req_count);
                 $display("Miss rate: %f",
-                        (dbg_cache_miss_count) / dbg_imem_access_count);
+                        (dbg_cache_miss_count) / dbg_mem_req_count);
                 $display("Icache occupancy: %d", icache_occupancy);
+
+                $display("\Imem Accesses: %f", dbg_imem_req_count);
             `endif
             $display("=================================");
             $display("============TRAP=================");
@@ -266,7 +275,7 @@ module testbench;
                 // Count imem accesses
                 `ifdef DEBUG_CACHE
                     if(proc_mem_instr)
-                        dbg_imem_access_count <= dbg_imem_access_count + 1;
+                        dbg_mem_req_count <= dbg_mem_req_count + 1;
                 `endif
                 end
 
@@ -285,6 +294,10 @@ module testbench;
     `ifdef DEBUG_CACHE
         always @(posedge dbg_miss) begin
             dbg_cache_miss_count <= dbg_cache_miss_count + 1;
+        end
+
+        always @(posedge dbg_imem_valid) begin
+            dbg_imem_req_count <= dbg_imem_req_count + 1;
         end
     `endif
 
