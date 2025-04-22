@@ -241,102 +241,6 @@ def get_UJ_opcodes(instructions):
 
     return opcodes
 
-# def get_opcodes(instructions):
-#     unique_opcodes = []
-#     opcodes = {}
-#     for instr in instructions: 
-#         opcode = get_opcode(instr)
-#         if opcode not in unique_opcodes:
-#             unique_opcodes.append(opcode)
-#             opcodes[opcode] = 0
-#         opcodes[opcode] += instructions[instr]
-
-#     return opcodes
-
-# def parse_funct7_funct3(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         bitfield = get_funct7_funct3(instr)
-#         if bitfield not in unique_bitfields:
-#             #print(upper, "        ", lower)
-#             unique_bitfields.append(bitfield)
-#             bitfields[bitfield] = 0
-#         bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
-# def parse_funct7_funct3_RISB(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         opcode = get_opcode(instr)
-#         if riscv_opcode_to_format[opcode] != 'U' and riscv_opcode_to_format[opcode] != 'J':
-#             bitfield = get_funct7_funct3(instr)
-#             if bitfield not in unique_bitfields:
-#                 #print(upper, "        ", lower)
-#                 unique_bitfields.append(bitfield)
-#                 bitfields[bitfield] = 0
-#             bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
-# def parse_registers(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         bitfield = get_register(instr)
-#         if bitfield not in unique_bitfields:
-#             #print(upper, "        ", lower)
-#             unique_bitfields.append(bitfield)
-#             bitfields[bitfield] = 0
-#         bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
-# def parse_registers_RISB(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         opcode = get_opcode(instr)
-#         if riscv_opcode_to_format[opcode] != 'U' and riscv_opcode_to_format[opcode] != 'J':
-#             bitfield = get_register(instr)
-#             if bitfield not in unique_bitfields:
-#                 #print(upper, "        ", lower)
-#                 unique_bitfields.append(bitfield)
-#                 bitfields[bitfield] = 0
-#             bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
-# def parse_immediate_UJ(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         opcode = get_opcode(instr)
-#         if riscv_opcode_to_format[opcode] == 'U' or riscv_opcode_to_format[opcode] == 'J':
-#             bitfield = get_bit_range(instr, 31, 12) #rs2 rs1
-#             if bitfield not in unique_bitfields:
-#                 unique_bitfields.append(bitfield)
-#                 bitfields[bitfield] = 0
-#             bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
-# def parse_registers_UJ(instructions):
-#     unique_bitfields = []
-#     bitfields = {}
-#     for instr in instructions: 
-#         opcode = get_opcode(instr)
-#         if riscv_opcode_to_format[opcode] == 'U' or riscv_opcode_to_format[opcode] == 'J':
-#             bitfield = get_bit_range(instr, 11, 7) #rs2 rs1
-#             if bitfield not in unique_bitfields:
-#                 unique_bitfields.append(bitfield)
-#                 bitfields[bitfield] = 0
-#             bitfields[bitfield] += instructions[instr]
-
-#     return bitfields
-
 def get_opcodes(instructions, max_entries=None):
     unique_opcodes = []
     opcodes = {}
@@ -437,12 +341,14 @@ def parse_registers_UJ(instructions, max_entries=None):
     return bitfields
 
 # NAIVE_I_TYPE
-def parse_imm_I_type(instructions):
+def parse_imm_I_type(instructions, max_entries=None):
     unique_bitfields = []
     bitfields = {}
     for instr in instructions: 
         bitfield = get_imm_I_type(instr)
         if bitfield not in unique_bitfields:
+            if max_entries is not None and len(unique_bitfields) >= max_entries:
+                break
             #print(upper, "        ", lower)
             unique_bitfields.append(bitfield)
             bitfields[bitfield] = 0
@@ -450,7 +356,7 @@ def parse_imm_I_type(instructions):
 
     return bitfields
 
-def parse_rs1_funct3_rd(instructions):
+def parse_rs1_funct3_rd(instructions, max_entries=None):
     unique_bitfields = []
     bitfields = {}
     for instr in instructions: 
@@ -459,6 +365,8 @@ def parse_rs1_funct3_rd(instructions):
         rd = get_rd(instr)
         bitfield = rs1 + funct3 + rd
         if bitfield not in unique_bitfields:
+            if max_entries is not None and len(unique_bitfields) >= max_entries:
+                break
             #print(upper, "        ", lower)
             unique_bitfields.append(bitfield)
             bitfields[bitfield] = 0
@@ -712,7 +620,7 @@ def profile_NAIVE_R_TYPE(instructions, instructions_all={}, write_out=False, fil
 # 1. Opcodes [6:0]
 # 2. imm[11:0] [31:20]
 # 3. rs1 funct3 rd [19:7]
-def profile_NAIVE_I_TYPE(instructions, instructions_all={}, write_out=False):
+def profile_NAIVE_I_TYPE(instructions, instructions_all={}, write_out=False, filename="NAIVE_I_TYPE"):
     
     print("\nNAIVE_I_TYPE PROFILING\n")
 
@@ -752,6 +660,32 @@ def profile_NAIVE_I_TYPE(instructions, instructions_all={}, write_out=False):
     print("[FIELD 1] + [FIELD 2] + [FIELD 3]: ", field1_bits + field2_bits + field3_bits)
     print("===================================================")
 
+    field1_bits = 3
+    field2_bits = 6
+    field3_bits = 7
+
+    # Get the max # compressible fields (from all instructions) to fill up luts
+    field1_write = get_opcodes(instructions_all, 2**field1_bits)
+    #field1_write = sort_entries(field1_write)
+
+    field2_write = parse_imm_I_type(instructions_all, 2**field2_bits)
+    #field2_write = sort_entries(field2_write)
+
+    field3_write = parse_rs1_funct3_rd(instructions_all, 2**field3_bits)
+    #field3_write = sort_entries(field3_write)
+
+
+    if(write_out):
+        with open("profiling/field1_" + filename + ".mem", 'w') as file:
+            for entry in field1_write:
+                file.write(entry + "\n")
+        with open("profiling/field2_" + filename + ".mem", 'w') as file:
+            for entry in field2_write:
+                file.write(entry + "\n")
+        with open("profiling/field3_" + filename + ".mem", 'w') as file:
+            for entry in field3_write:
+                file.write(entry + "\n")
+
 def main():
     # Parse trace
     filename = sys.argv[1]
@@ -760,17 +694,15 @@ def main():
     prefix_removed = filename.split("output/")[-1]  # → "[program_name].out"
 
     # Remove suffix ('.out')
-    suffix_removed = prefix_removed.replace(".trace_dump", "")  # → "[program_name]"
+    program_name = prefix_removed.replace(".trace_dump", "")  # → "[program_name]"
 
-    # Remove brackets if needed
-    program_name = suffix_removed.strip("[]")  # → "program_name"
-
-    print(program_name)  # Output: program_name
+    print(program_name)
 
     instructions_all, num_instructions, max_pc = parse_assembly_file(filename)
     get_instr_ratio(instructions_all)
-    # profile_various(instructions_all)
-    profile_NAIVE_R_TYPE(instructions_all, instructions_all, True, "all")
+    #profile_various(instructions_all)
+    #profile_NAIVE_R_TYPE(instructions_all, instructions_all, True, "all")
+    profile_NAIVE_R_TYPE(instructions_all)
     profile_NAIVE_I_TYPE(instructions_all)
 
     instructions_128 = trim_instructions(instructions_all, num_instructions, 128)
@@ -782,8 +714,8 @@ def main():
     instructions_256 = trim_instructions(instructions_all, num_instructions, 256)
     get_instr_ratio(instructions_256)
     #profile_various(instructions_256)
-    profile_NAIVE_R_TYPE(instructions_256, instructions_all, True, "NAIVE_R_TYPE_" + program_name)
-    profile_NAIVE_I_TYPE(instructions_256)
+    profile_NAIVE_R_TYPE(instructions_256, instructions_all, True, "R_" + program_name)
+    profile_NAIVE_I_TYPE(instructions_256, instructions_all, True, "I_" + program_name)
 
     instructions_512 = trim_instructions(instructions_all, num_instructions, 512)
     get_instr_ratio(instructions_512)

@@ -3,18 +3,33 @@
 //`define USE_1WA_COMP_ICACHE
 `define USE_XWA_COMP_ICACHE
 
+//`define R_TYPE
+`define I_TYPE
+
 module controller #(
+    `ifdef R_TYPE
     //should add to 16 (currently)
-    parameter FIELD1_KEY_WIDTH = 3,
+    parameter FIELD1_KEY_WIDTH = 3, // R TYPE
     parameter FIELD2_KEY_WIDTH = 5,
     parameter FIELD3_KEY_WIDTH = 8,
-
     //should add to 32.
-    parameter FIELD1_VAL_WIDTH = 7,
+    parameter FIELD1_VAL_WIDTH = 7, // R TPYE
     parameter FIELD2_VAL_WIDTH = 10,
     parameter FIELD3_VAL_WIDTH = 15,
+    `endif 
+    
+    `ifdef  I_TYPE
+    //should add to 16 (currently)
+    parameter FIELD1_KEY_WIDTH = 3, // I TYPE
+    parameter FIELD2_KEY_WIDTH = 6,
+    parameter FIELD3_KEY_WIDTH = 7,
+    //should add to 32.
+    parameter FIELD1_VAL_WIDTH = 7, // I TYPE
+    parameter FIELD2_VAL_WIDTH = 12,
+    parameter FIELD3_VAL_WIDTH = 13,
+    `endif
 
-    parameter CACHE_SIZE = 1*1024,
+    parameter CACHE_SIZE = 2*1024,
     parameter CACHE_SIZE_COMP = 1*1024,
     parameter NUM_WAYS = 2,
     parameter NUM_WAYS_COMP = 2,
@@ -283,7 +298,12 @@ module controller #(
     assign comp_proc_addr = proc_addr;
 
     assign proc_ready = icache_proc_ready | comp_proc_ready;
-    assign decompressedInst = {field2_val_out[9:3],field3_val_out[14:5],field2_val_out[2:0],field3_val_out[4:0],field1_val_out[6:0]};
+    `ifdef R_TYPE
+    assign decompressedInst = {field2_val_out[9:3],field3_val_out[14:5],field2_val_out[2:0],field3_val_out[4:0],field1_val_out[6:0]}; // R TYPE
+    `endif 
+    `ifdef I_TYPE
+    assign decompressedInst = {field2_val_out, field3_val_out ,field1_val_out};
+    `endif
     assign proc_rdata = icache_proc_ready ? icache_proc_rdata : comp_proc_ready ? decompressedInst : 32'b0;
 
     assign field1_key_lookup = comp_proc_rdata[FIELD1_KEY_WIDTH -1 :0];
@@ -298,9 +318,16 @@ module controller #(
 
     assign compressible_instr = field1_val_lookup_result & field2_val_lookup_result & field3_val_lookup_result;
 
-    assign field1_val_lookup = mem_req_rdata[6:0];
+    `ifdef R_TYPE
+    assign field1_val_lookup = mem_req_rdata[6:0]; // R TYPE
     assign field2_val_lookup = {mem_req_rdata[31:25],mem_req_rdata[14:12]};
     assign field3_val_lookup = {mem_req_rdata[24:15],mem_req_rdata[11:7]};
+    `endif 
+    `ifdef I_TYPE
+    assign field1_val_lookup = mem_req_rdata[6:0]; // I TYPE
+    assign field2_val_lookup = mem_req_rdata[31:20];
+    assign field3_val_lookup = mem_req_rdata[19:7];
+    `endif
 
     `ifdef DEBUG_CACHE
         assign                debug_compressible                = compressible;

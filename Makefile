@@ -226,6 +226,18 @@ EMB_PROGRAMS = programs/mont64 programs/crc32 programs/cubic programs/edn \
                programs/primecount programs/qrduino programs/sglib-combined \
                programs/slre programs/st programs/statemate programs/tarfind \
                programs/ud programs/wikisort
+
+BENCHMARKS = 	programs/cubic \
+				programs/minver \
+				programs/nbody \
+				programs/nettle-aes \
+				programs/nettle-sha256 \
+				programs/nsichneu \
+				programs/picojpeg \
+				programs/st \
+				programs/statemate \
+				programs/wikisort 
+
 PROGRAMS = $(C_CODE:%.c=%) $(EMB_PROGRAMS)
 
 PROGRAMS_STRIP = $(PROGRAMS:programs/%=%)
@@ -380,7 +392,7 @@ $(OUTPUTS:=.base.out): output/%.base.out: programs/%.mem simv_base | output
 
 $(OUTPUTS:=.cont.out): output/%.cont.out: programs/%.mem %.bitf simv_cont | output
 	@$(call PRINT_COLOR, 5, running simv on $<)
-	./simv_cont +MEMORY=$< +TRACE=$(@D)/$*.cont.trace +MEMACCESS=$(@D)/$*.cont.memacc > $@
+	./simv_cont +PROGRAM=$* +MEMORY=$< +TRACE=$(@D)/$*.cont.trace +MEMACCESS=$(@D)/$*.cont.memacc > $@
 	@$(call PRINT_COLOR, 6, finished running simv on $<)
 	@$(call PRINT_COLOR, 2, output is in $@, $(@D)/$*.memaccess, and $(@D)/$*.trace)
 # NOTE: this uses a 'static pattern rule' to match a list of known targets to a pattern
@@ -416,6 +428,11 @@ simulate_all: simv compile_all $(OUTPUTS:=.out)
 simulate_all_cont: simv_cont compile_all $(OUTPUTS:=.cont.out)
 simulate_all_base: simv compile_all $(OUTPUTS:=.base.out)
 simulate_all_syn: syn_simv compile_all $(OUTPUTS:=.syn.out)
+
+BENCHMARK_OUTPUTS = $(BENCHMARKS:programs/%=output/%)
+benchmark_all: simv compile_all $(BENCHMARK_OUTPUTS:=.out)
+benchmark_all_cont: simv compile_all $(BENCHMARK_OUTPUTS:=.cont.out)
+
 .PHONY: simulate_all simulate_all_syn
 
 #######################

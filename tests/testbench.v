@@ -13,7 +13,7 @@ module testbench;
     reg resetn = 0;
     wire trap;
 
-    localparam CACHE_SIZE = 4*1024;
+    localparam CACHE_SIZE = 1*1024;
     localparam NUM_WAYS = 2;
     localparam NUM_BLOCKS = 4;
     localparam BLOCK_SIZE = 4;

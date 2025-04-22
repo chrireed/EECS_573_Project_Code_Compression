@@ -7,97 +7,112 @@ EXCLUDED_PROGRAMS = {
     "hello",
     "helloworld",
     "multest",
-    "sieve"
+    "sieve",
+    "crc32",
+    "edn",
+    "huffbench",
+    "matmult-int",
+    "mont64",
+    "md5sum",
+    "primecount",
+    "sglib-combined",
+    "slre",
+    "tarfind",
+    "ud",
+    "qrduino"
 }
 
-def parse_output_files(directory="../output"):  # Changed to look in parent/output
-    # Dictionary to store results for each program
+def parse_output_files(directory="../output"):
     results = {}
     
-    # Regular expressions to extract the information we need
-    program_name_re = re.compile(r"output/([^/]+)\.out")
+    # Regular expressions for all metrics
     miss_rate_re = re.compile(r"Miss rate:\s+([\d.]+)")
     occupancy_re = re.compile(r"Icache occupancy:\s+(\d+)")
-    
-    # Walk through the directory
-    for root, _, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".out"):
-                filepath = os.path.join(root, file)
-                # Extract program name from filename (without the .out extension)
-                program_name = os.path.splitext(file)[0]
+    cycles_re = re.compile(r"Cycle counter\s+\.+(\d+)")
+    imem_re = re.compile(r"Imem Accesses:\s+([\d.]+)")
+
+    for file in os.listdir(directory):
+        if file.endswith(".out"):
+            program_name = os.path.splitext(file)[0]
+            
+            if program_name in EXCLUDED_PROGRAMS:
+                print(f"Skipping excluded program: {program_name}")
+                continue
+            
+            filepath = os.path.join(directory, file)
+            
+            try:
+                with open(filepath, 'r') as f:
+                    content = f.read()
                 
-                if program_name in EXCLUDED_PROGRAMS:
-                    continue
+                # Extract all metrics (without walrus operator)
+                metrics = {}
+                miss_match = miss_rate_re.search(content)
+                occ_match = occupancy_re.search(content)
+                cycle_match = cycles_re.search(content)
+                imem_match = imem_re.search(content)
+                
+                if miss_match:
+                    metrics['Miss Rate'] = float(miss_match.group(1))
+                if occ_match:
+                    metrics['Occupancy'] = int(occ_match.group(1))
+                if cycle_match:
+                    metrics['Cycles'] = int(cycle_match.group(1))
+                if imem_match:
+                    metrics['Imem Accesses'] = float(imem_match.group(1))
+                
+                if metrics:  # Only add if we found at least one metric
+                    results[program_name] = metrics
                     
-                # Read the file
-                try:
-                    with open(filepath, 'r') as f:
-                        content = f.read()
-                except FileNotFoundError:
-                    print(f"Warning: Could not read file {filepath}")
-                    continue
-                
-                # Find miss rate and occupancy
-                miss_rate_match = miss_rate_re.search(content)
-                occupancy_match = occupancy_re.search(content)
-                
-                if miss_rate_match and occupancy_match:
-                    miss_rate = float(miss_rate_match.group(1))
-                    occupancy = int(occupancy_match.group(1))
-                    results[program_name] = {
-                        'miss_rate': miss_rate,
-                        'occupancy': occupancy
-                    }
-                else:
-                    print(f"Warning: Could not find metrics in {filepath}")
+            except Exception as e:
+                print(f"Error processing {filepath}: {e}")
     
     return results
 
-def calculate_averages(results):
+def print_results(results):
     if not results:
-        return None, None
-    
-    total_miss_rate = 0
-    total_occupancy = 0
-    count = len(results)
-    
-    for program in results.values():
-        total_miss_rate += program['miss_rate']
-        total_occupancy += program['occupancy']
-    
-    avg_miss_rate = total_miss_rate / count
-    avg_occupancy = total_occupancy / count
-    
-    return avg_miss_rate, avg_occupancy
-
-def print_results(results, avg_miss_rate, avg_occupancy):
-    print("{:<20} {:<15} {:<15}".format("Program", "Miss Rate", "Occupancy"))
-    print("-" * 50)
-    
-    for program, data in sorted(results.items()):
-        print("{:<20} {:<15.6f} {:<15}".format(
-            program, data['miss_rate'], data['occupancy']
-        ))
-    
-    if avg_miss_rate is not None and avg_occupancy is not None:
-        print("\n{:<20} {:<15.6f} {:<15.2f}".format(
-            "Averages:", avg_miss_rate, avg_occupancy
-        ))
-
-def main():
-    # Parse the files
-    results = parse_output_files()
-    
-    if not results:
-        print("No valid output files found in the '../output' directory.")
+        print("No results found!")
         return
     
-    # Calculate averages
-    avg_miss_rate, avg_occupancy = calculate_averages(results)
+    # Determine column widths
+    max_program_len = max(len(prog) for prog in results.keys())
+    max_program_len = max(max_program_len, len("Program"))
     
-    # Print results
-    print_results(results, avg_miss_rate, avg_occupancy)
+    # Header
+    header = (f"{'Program':<{max_program_len}}  "
+              f"{'Miss Rate':<12}  "
+              f"{'Occupancy':<10}  "
+              f"{'Cycles':<12}  "
+              f"{'Imem Accesses':<15}")
+    print(header)
+    print("-" * len(header))
+    
+    # Rows
+    for program, data in sorted(results.items()):
+        print(f"{program:<{max_program_len}}  "
+              f"{data.get('Miss Rate', 'N/A'):<12.3f}  "
+              f"{data.get('Occupancy', 'N/A'):<10}  "
+              f"{data.get('Cycles', 'N/A'):<12}  "
+              f"{data.get('Imem Accesses', 'N/A'):<15.2f}")
+    
+    # Averages
+    print("-" * len(header))
+    if results:
+        avg_miss = sum(d.get('Miss Rate', 0) for d in results.values()) / len(results)
+        avg_occ = sum(d.get('Occupancy', 0) for d in results.values()) / len(results)
+        avg_cycles = sum(d.get('Cycles', 0) for d in results.values()) / len(results)
+        avg_imem = sum(d.get('Imem Accesses', 0) for d in results.values()) / len(results)
+        
+        print(f"{'Average':<{max_program_len}}  "
+              f"{avg_miss:<12.3f}  "
+              f"{avg_occ:<10.1f}  "
+              f"{avg_cycles:<12.1f}  "
+              f"{avg_imem:<15.2f}")
+
+def main():
+    results = parse_output_files()
+    print("\nPerformance Metrics (Excluded: {EXCLUDED_PROGRAMS}):")
+    print_results(results)
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,8 @@
 //key_data_in: Compressed key (index into LUT)
 //val_lookup_in: Enter an uncompressed bitstring, returns existence in val_lookup_res.
 module dictionary_field1 #(
-  parameter KEY_WIDTH  = 3,
-  parameter VAL_WIDTH  = 7
+    parameter KEY_WIDTH  = 3,
+    parameter VAL_WIDTH  = 7
   ) (
   //------------Input Ports--------------                        
   input  [KEY_WIDTH-1:0]   key_lookup_in, //Lookup this key (index bits / compressed bits)

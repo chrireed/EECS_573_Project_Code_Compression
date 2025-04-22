@@ -3,29 +3,43 @@
 //`define WRITE_VCD
 `define DEBUG_CACHE
 //`define PRINT_DEBUG
-`define WRITE_MEMACC
-`define WRITE_TRACE
+//`define WRITE_MEMACC
+//`define WRITE_TRACE
 
+//`define R_TYPE
+`define I_TYPE
 module testbench;
     reg clk = 1;
     reg resetn = 0;
     wire trap;
 
-    localparam FIELD1_VAL_WIDTH = 7;
+    `ifdef R_TYPE
+    localparam FIELD1_VAL_WIDTH = 7; // R TYPE
     localparam FIELD2_VAL_WIDTH = 10;
     localparam FIELD3_VAL_WIDTH = 15;
 
     localparam FIELD1_KEY_WIDTH = 3;
     localparam FIELD2_KEY_WIDTH = 5;
     localparam FIELD3_KEY_WIDTH = 8;
+    `endif
 
+    `ifdef I_TYPE
+    localparam FIELD1_VAL_WIDTH = 7;    // I TYPE
+    localparam FIELD2_VAL_WIDTH = 12;
+    localparam FIELD3_VAL_WIDTH = 13;
 
+    localparam FIELD1_KEY_WIDTH = 3;
+    localparam FIELD2_KEY_WIDTH = 6;
+    localparam FIELD3_KEY_WIDTH = 7;
+    `endif
+    
     reg [20:0] dict_index;
     always #2 clk = ~clk;
 
+    reg [239:0] program_name;
     reg [FIELD1_VAL_WIDTH  - 1:0] field1_file [2**FIELD1_KEY_WIDTH-1 :0];
     reg [FIELD2_VAL_WIDTH  - 1:0] field2_file [2**FIELD2_KEY_WIDTH-1 :0];
-    reg [FIELD3_VAL_WIDTH - 1:0]  field3_file  [2**FIELD3_KEY_WIDTH-1 :0];
+    reg [FIELD3_VAL_WIDTH - 1:0]  field3_file [2**FIELD3_KEY_WIDTH-1 :0];
     
     reg dict1_write_enable;
     reg dict2_write_enable;
@@ -34,6 +48,7 @@ module testbench;
    reg [FIELD1_VAL_WIDTH-1:0] dict1_write_val ;
    reg [FIELD2_VAL_WIDTH-1:0] dict2_write_val ;
    reg [FIELD3_VAL_WIDTH-1:0] dict3_write_val ;
+
     integer i;
     
     
@@ -50,13 +65,30 @@ module testbench;
             field3_file[i] = {FIELD3_VAL_WIDTH{1'b0}};
         end
 
+        // Load program name
+        if ($value$plusargs("PROGRAM=%s", program_name)) begin
+            $display("Running program: %s", program_name);
+        end
+
+        `ifdef R_TYPE
         //load dictionaries
-        $readmemb("profiling/field1_all.mem", field1_file);
+        $readmemb({"profiling/field1_R_", program_name, ".mem"}, field1_file);
         $display("Instruction 0: %b", field1_file[0]);
-        $readmemb("profiling/field2_all.mem", field2_file);
+        $readmemb({"profiling/field2_R_", program_name, ".mem"}, field2_file);
         $display("Instruction 0: %b", field2_file[0]);
-        $readmemb("profiling/field3_all.mem", field3_file);
+        $readmemb({"profiling/field3_R_", program_name, ".mem"}, field3_file);
         $display("Instruction 0: %b", field3_file[0]);
+        `endif
+
+        `ifdef I_TYPE
+        //load dictionaries
+        $readmemb({"profiling/field1_I_", program_name, ".mem"}, field1_file);
+        $display("Instruction 0: %b", field1_file[0]);
+        $readmemb({"profiling/field2_I_", program_name, ".mem"}, field2_file);
+        $display("Instruction 0: %b", field2_file[0]);
+        $readmemb({"profiling/field3_I_", program_name, ".mem"}, field3_file);
+        $display("Instruction 0: %b", field3_file[0]);
+        `endif
 
         dict_index = 20'b0;
 
@@ -153,15 +185,14 @@ module testbench;
         wire [31:0]  dbg_comp_cache_occupancy;
         wire         dbg_imem_valid;
 
-        real dbg_mem_req_count = 0;
-        real dbg_icache_miss_count = 0;
         wire dbg_both_miss;
 
+        real dbg_mem_req_count         = 0;
         real dbg_imem_access_count     = 0;
         real dbg_icache_miss_count     = 0;
         real dbg_combined_miss_count   = 0;
         real dbg_comp_cache_miss_count = 0;
-        real dbg_imem_req_count = 0;
+        real dbg_imem_req_count        = 0;
 
         wire                debug_compressible;
         wire                debug_compressible_instr;
@@ -344,7 +375,6 @@ module testbench;
             repeat (10) @(posedge clk);
             `ifdef DEBUG_CACHE
                 // Print cache stats
-
                 $display("Imem Accesses: %d",
                         dbg_imem_access_count);
 
@@ -372,7 +402,7 @@ module testbench;
                         (dbg_comp_cache_miss_count) / dbg_mem_req_count);
                 $display("Icache occupancy: %d", dbg_comp_cache_occupancy);
 
-                $display("\Imem Accesses: %f", dbg_imem_req_count);
+                $display("Imem Accesses: %f\n", dbg_imem_req_count);
                 $display("\nCombined cache Statistics:");
                 $display("Hits: %d, Misses: %d",
                         dbg_imem_access_count - dbg_combined_miss_count,
@@ -402,14 +432,14 @@ module testbench;
             `ifdef WRITE_MEMACC
             if (|proc_mem_wstrb)
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
-            else 
+            else begin
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
-                // Count imem accesses
+                            // Count imem accesses
                 `ifdef DEBUG_CACHE
                     if(proc_mem_instr)
                         dbg_mem_req_count <= dbg_mem_req_count + 1;
                 `endif
-                end
+            end
             `endif
 
             `ifdef DEBUG_CACHE
@@ -427,7 +457,7 @@ module testbench;
                 $finish;
             end
         end
-  
+    end
 
     // Cache stats
     `ifdef DEBUG_CACHE
@@ -444,6 +474,7 @@ module testbench;
         always @(posedge dbg_imem_valid) begin
             dbg_imem_req_count <= dbg_imem_req_count + 1;
         end
+        
         always @(posedge dbg_both_miss) begin
             dbg_combined_miss_count <= dbg_combined_miss_count + 1;
         end
