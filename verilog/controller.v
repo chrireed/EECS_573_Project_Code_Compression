@@ -1,3 +1,8 @@
+//`define USE_1WA_ICACHE
+`define USE_XWA_ICACHE
+//`define USE_1WA_COMP_ICACHE
+`define USE_XWA_COMP_ICACHE
+
 module controller #(
     //should add to 16 (currently)
     parameter FIELD1_KEY_WIDTH = 3,
@@ -9,9 +14,13 @@ module controller #(
     parameter FIELD2_VAL_WIDTH = 10,
     parameter FIELD3_VAL_WIDTH = 15,
 
-    parameter CACHE_SIZE = 1*1024,
+    parameter CACHE_SIZE = 2*1024,
+    parameter CACHE_SIZE_COMP = 2*1024,
+    parameter NUM_WAYS = 2,
+    parameter NUM_WAYS_COMP = 2,
     parameter NUM_BLOCKS = 4,
-    parameter BLOCK_SIZE = 4
+    parameter BLOCK_SIZE = 4,
+    parameter BLOCK_SIZE_COMP = 2
 
 
 )(
@@ -108,6 +117,7 @@ module controller #(
 
 
     // Instantiate Regular ICache
+    `ifdef USE_1WA_ICACHE
     icache_1wa_wide #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
@@ -128,12 +138,38 @@ module controller #(
         .mem_req_addr(icache_mem_req_addr),
         .mem_req_rdata(icache_mem_req_rdata)
     );
+    `endif
+
+    `ifdef USE_XWA_ICACHE
+    icache_Xwa_wide #(
+        .CACHE_SIZE(CACHE_SIZE),
+        .NUM_WAYS(NUM_WAYS),
+        .NUM_BLOCKS(NUM_BLOCKS),
+        .BLOCK_SIZE(BLOCK_SIZE)
+    ) icache (
+        `ifdef DEBUG_CACHE
+            .debug_miss    (debug_icache_miss),
+            .occupancy     (debug_icache_occupancy),
+        `endif
+        .clk(clk),
+        .resetn(resetn),
+        .proc_valid(icache_proc_valid),
+        .proc_ready(icache_proc_ready),
+        .proc_addr(icache_proc_addr),
+        .proc_rdata(icache_proc_rdata),
+        .mem_req_valid(icache_mem_req_valid),
+        .mem_req_ready(icache_mem_req_ready),
+        .mem_req_addr(icache_mem_req_addr),
+        .mem_req_rdata(icache_mem_req_rdata)
+    );
+    `endif
 
     // Instantiate Compressed ICache
+    `ifdef USE_1WA_COMP_ICACHE
     icache_1wa_wide_comp #(
-        .CACHE_SIZE(CACHE_SIZE),
+        .CACHE_SIZE(CACHE_SIZE_COMP),
         .NUM_BLOCKS(NUM_BLOCKS),
-        .BLOCK_SIZE(2)
+        .BLOCK_SIZE(BLOCK_SIZE_COMP)
     ) icache_comp (
 
         `ifdef DEBUG_CACHE
@@ -152,6 +188,33 @@ module controller #(
         .mem_req_addr(comp_mem_req_addr),
         .mem_req_rdata(comp_mem_req_rdata)
     );
+    `endif 
+    
+    `ifdef USE_XWA_COMP_ICACHE
+    icache_Xwa_wide_comp #(
+        .CACHE_SIZE(CACHE_SIZE_COMP),
+        .NUM_WAYS(NUM_WAYS_COMP),
+        .NUM_BLOCKS(NUM_BLOCKS),
+        .BLOCK_SIZE(BLOCK_SIZE_COMP)
+    ) icache_comp (
+
+        `ifdef DEBUG_CACHE
+            .debug_miss    (debug_comp_cache_miss),
+            .occupancy     (debug_comp_occupancy),
+        `endif
+
+        .clk(clk),
+        .resetn(resetn),
+        .proc_valid(comp_proc_valid),
+        .proc_ready(comp_proc_ready),
+        .proc_addr(comp_proc_addr),
+        .proc_rdata(comp_proc_rdata),
+        .mem_req_valid(comp_mem_req_valid),
+        .mem_req_ready(comp_mem_req_ready),
+        .mem_req_addr(comp_mem_req_addr),
+        .mem_req_rdata(comp_mem_req_rdata)
+    );
+    `endif
 
     // Instantiate Dictionary for Field1
     dictionary_field1 #(

@@ -2,11 +2,21 @@
 
 //`define WRITE_VCD
 `define DEBUG_CACHE
+//`define USE_1WA_ICACHE
+`define USE_XWA_ICACHE
+
+//`define WRITE_MEMACC
+`define WRITE_TRACE
 
 module testbench;
     reg clk = 1;
     reg resetn = 0;
     wire trap;
+
+    localparam CACHE_SIZE = 4*1024;
+    localparam NUM_WAYS = 2;
+    localparam NUM_BLOCKS = 4;
+    localparam BLOCK_SIZE = 4;
 
     always #2 clk = ~clk;
 
@@ -92,9 +102,9 @@ module testbench;
 
 `ifdef USE_1WA_ICACHE
     icache_1wa #(
-        .CACHE_SIZE(4*1024), // Size of cache in B
-        .NUM_BLOCKS(4), // Number of blocks per cache line
-        .BLOCK_SIZE(4)  // Block size in B
+        .CACHE_SIZE(CACHE_SIZE), // Size of cache in B
+        .NUM_BLOCKS(NUM_BLOCKS), // Number of blocks per cache line
+        .BLOCK_SIZE(BLOCK_SIZE)  // Block size in B
     ) icache (
         `ifdef DEBUG_CACHE
             .debug_miss    (dbg_miss),
@@ -118,10 +128,10 @@ module testbench;
 
 `ifdef USE_XWA_ICACHE
     icache_Xwa #(
-        .CACHE_SIZE(4*1024), // Size of cache in B
-        .NUM_WAYS  (256), // Cache associativity
-        .NUM_BLOCKS(2), // Number of blocks per cache line
-        .BLOCK_SIZE(4)  // Block size in B
+        .CACHE_SIZE(CACHE_SIZE), // Size of cache in B
+        .NUM_WAYS  (NUM_WAYS), // Cache associativity
+        .NUM_BLOCKS(NUM_BLOCKS), // Number of blocks per cache line
+        .BLOCK_SIZE(BLOCK_SIZE)  // Block size in B
     ) icache (
         `ifdef DEBUG_CACHE
             .debug_miss    (dbg_miss),
@@ -220,7 +230,7 @@ module testbench;
 	end
 
     // Write to the trace file
-    
+    `ifdef WRITE_TRACE
     initial
     begin
         repeat (10) @(posedge clk);
@@ -231,6 +241,7 @@ module testbench;
         end
         $fclose(trace_fd);
     end
+    `endif
     
     // Finish the program when we trap
     always @(posedge clk) begin
@@ -268,16 +279,27 @@ module testbench;
                 $finish;
             end
 
+            `ifdef WRITE_MEMACC
             if (|proc_mem_wstrb)
                 $fwrite(mem_access_fd, "WR: ADDR=%x DATA=%x MASK=%b\n", proc_mem_addr, proc_mem_wdata, proc_mem_wstrb);
-            else begin
+            else 
                 $fwrite(mem_access_fd, "RD: ADDR=%x DATA=%x%s\n", proc_mem_addr, proc_mem_rdata, proc_mem_instr ? " INSN" : "");
+<<<<<<< HEAD
                 // Count imem accesses
                 `ifdef DEBUG_CACHE
                     if(proc_mem_instr)
                         dbg_mem_req_count <= dbg_mem_req_count + 1;
                 `endif
                 end
+=======
+            `endif
+
+            `ifdef DEBUG_CACHE
+            if (~(|proc_mem_wstrb))
+                if(proc_mem_instr)
+                    dbg_imem_access_count <= dbg_imem_access_count + 1;
+            `endif
+>>>>>>> e873d87458747e4e415020a42fc67a7ce618b072
 
             if (^proc_mem_addr === 1'bx ||
                     (proc_mem_wstrb[0] && ^proc_mem_wdata[ 7: 0] == 1'bx) ||
