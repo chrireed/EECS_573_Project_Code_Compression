@@ -52,8 +52,8 @@
 
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
-//#define LOCAL_SCALE_FACTOR 11
-#define LOCAL_SCALE_FACTOR 1
+#define LOCAL_SCALE_FACTOR 11
+//#define LOCAL_SCALE_FACTOR 1
 /* BEEBS heap is just an array */
 
 #define HEAP_SIZE 8192

@@ -134,19 +134,15 @@ MEM 	  = verilog/imem.v \
 
 SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa.v \
-			verilog/icache_Xwa.v 
-
-SOURCES_CONT = 	verilog/picorv32.v \
-				verilog/icache_1wa.v \
-				verilog/icache_Xwa.v \
-				verilog/controller.v \
-				verilog/dictionary_field1.v \
-				verilog/dictionary_field2.v \
-				verilog/dictionary_field3.v \
-				verilog/icache_1wa_wide.v \
-				verilog/icache_Xwa_wide.v \
-				verilog/icache_1wa_wide_comp.v \
-				verilog/icache_Xwa_wide_comp.v
+			verilog/icache_Xwa.v \
+			verilog/controller.v \
+			verilog/dictionary_field1.v \
+			verilog/dictionary_field2.v \
+			verilog/dictionary_field3.v \
+			verilog/icache_1wa_wide.v \
+			verilog/icache_Xwa_wide.v \
+			verilog/icache_1wa_wide_comp.v \
+			verilog/icache_Xwa_wide_comp.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \
@@ -155,8 +151,10 @@ SYNTH_FILES = 	synth/picorv32.vg \
 				synth/dictionary_field1.vg \
 				synth/dictionary_field2.vg \
 				synth/dictionary_field3.vg \
+				synth/icache_1wa_wide.vg \
+				synth/icache_Xwa_wide.vg \
 				synth/icache_1wa_wide_comp.vg \
-				synth/icache_1wa_wide.vg 
+				synth/icache_Xwa_wide_comp.vg
 
 # the normal simulation executable will run your testbench on the original modules
 simv: $(TESTBENCH) $(SOURCES) $(MEM) $(HEADERS)
@@ -171,14 +169,14 @@ simv_base: $(TESTBENCH_BASE) $(SOURCES) $(DMEM) $(HEADERS)
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
-simv_cont: $(TESTBENCH_CONT) $(SOURCES_CONT) $(MEM) $(HEADERS)
+simv_cont: $(TESTBENCH_CONT) $(SOURCES) $(MEM) $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) +define+DEBUG_CACHE $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
-synth/%.vg: $(SOURCES) $(SOURCES_CONT) $(TCL_SCRIPT) $(HEADERS)
+synth/%.vg: $(SOURCES) $(SOURCES) $(TCL_SCRIPT) $(HEADERS)
 	@$(call PRINT_COLOR, 5, synthesizing the $* module)
 	@$(call PRINT_COLOR, 3, this might take a while...)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')

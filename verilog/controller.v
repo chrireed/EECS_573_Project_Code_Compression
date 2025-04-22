@@ -14,8 +14,8 @@ module controller #(
     parameter FIELD2_VAL_WIDTH = 10,
     parameter FIELD3_VAL_WIDTH = 15,
 
-    parameter CACHE_SIZE = 2*1024,
-    parameter CACHE_SIZE_COMP = 2*1024,
+    parameter CACHE_SIZE = 1*1024,
+    parameter CACHE_SIZE_COMP = 1*1024,
     parameter NUM_WAYS = 2,
     parameter NUM_WAYS_COMP = 2,
     parameter NUM_BLOCKS = 4,
