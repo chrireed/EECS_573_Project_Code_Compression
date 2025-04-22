@@ -135,11 +135,12 @@ MEM 	  = verilog/imem.v \
 SOURCES = 	verilog/picorv32.v \
 			verilog/icache_1wa.v \
 			verilog/icache_Xwa.v \
-			verilog/icache_comp.v \
 			verilog/controller.v \
 			verilog/dictionary.v \
 			verilog/icache_1wa_wide.v \
-			verilog/icache_Xwa_wide.v 
+			verilog/icache_Xwa_wide.v \
+			verilog/icache_1wa_wide_comp.v \
+			verilog/icache_Xwa_wide_comp.v
 
 SYNTH_FILES = 	synth/picorv32.vg \
 				synth/icache_1wa.vg \

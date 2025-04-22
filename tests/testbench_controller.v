@@ -63,7 +63,7 @@ module testbench;
         dict3_write_enable = 1'b0;
         #20
 
-        repeat (200) begin  
+        repeat (1000) begin  
             @(posedge clk);
                 resetn = 0;
                 

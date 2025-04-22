@@ -130,7 +130,7 @@ module controller #(
     );
 
     // Instantiate Compressed ICache
-    icache_1wa_wide #(
+    icache_1wa_wide_comp #(
         .CACHE_SIZE(CACHE_SIZE),
         .NUM_BLOCKS(NUM_BLOCKS),
         .BLOCK_SIZE(2)
